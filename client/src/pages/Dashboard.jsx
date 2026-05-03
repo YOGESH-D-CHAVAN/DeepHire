@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
+import Footer from '../components/layout/Footer';
 import StatCard from '../components/dashboard/StatCard';
 import InterviewInterface from '../components/dashboard/InterviewInterface';
 import { Video, Award, Target, Clock, ArrowUpRight, CheckCircle2 } from 'lucide-react';
@@ -10,10 +11,10 @@ const Dashboard = () => {
     <div className="min-h-screen bg-[#0a0a0a] text-white flex">
       <Sidebar />
       
-      <main className="flex-1 ml-64">
+      <main className="flex-1 ml-64 flex flex-col">
         <Navbar />
         
-        <div className="p-8 max-w-7xl mx-auto space-y-8">
+        <div className="p-8 max-w-7xl mx-auto space-y-8 flex-1">
           {/* Welcome Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -25,7 +26,6 @@ const Dashboard = () => {
               Start Mock Interview
             </Link>
           </div>
-
 
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -127,9 +127,12 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        <Footer />
       </main>
     </div>
   );
 };
 
 export default Dashboard;
+
