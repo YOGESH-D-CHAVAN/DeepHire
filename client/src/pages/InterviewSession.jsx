@@ -4,21 +4,60 @@ import {
   Mic, MicOff, Video, VideoOff, PhoneOff,
   MessageSquare, BarChart3, Settings,
   AlertCircle, ChevronRight, Bot, User,
-  Smile, Frown, Meh, Zap
+  Smile, Frown, Meh, Zap, Eye, Hand
 } from 'lucide-react';
 import { cn } from '../utils/cn';
 import interviewerImg from '../assets/interviewer.png';
+import { FilesetResolver, FaceLandmarker, HandLandmarker } from '@mediapipe/tasks-vision';
 
 const InterviewSession = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [timer, setTimer] = useState(0);
   const [expression, setExpression] = useState('Neutral');
+  const [eyeStatus, setEyeStatus] = useState('Focused');
+  const [handStatus, setHandStatus] = useState('None Detected');
   const [isInterviewerTalking, setIsInterviewerTalking] = useState(true);
   
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
+  
+  const faceLandmarkerRef = useRef(null);
+  const handLandmarkerRef = useRef(null);
+  const requestRef = useRef(null);
+
+  // Initialize MediaPipe
+  useEffect(() => {
+    const initMediaPipe = async () => {
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+      );
+      
+      faceLandmarkerRef.current = await FaceLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+          delegate: "GPU"
+        },
+        outputFaceBlendshapes: true,
+        runningMode: "VIDEO",
+        numFaces: 1
+      });
+
+      handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+          delegate: "GPU"
+        },
+        runningMode: "VIDEO",
+        numHands: 2
+      });
+
+      console.log("MediaPipe Models Loaded Successfully");
+    };
+
+    initMediaPipe();
+  }, []);
 
   // Timer
   useEffect(() => {
@@ -59,45 +98,84 @@ const InterviewSession = () => {
     return () => stopCamera();
   }, [isVideoOff]);
 
-  // Real-time Facial Expression Analysis
+  // Real-time Tracking Loop
   useEffect(() => {
     if (isVideoOff) return;
 
-    const analyzeFace = async () => {
+    const processVideo = async () => {
       if (videoRef.current && videoRef.current.readyState === 4) {
-        const canvas = canvasRef.current;
+        const startTimeMs = performance.now();
         const video = videoRef.current;
-        const context = canvas.getContext('2d');
 
-        canvas.width = 320;
-        canvas.height = 240;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        const base64Image = canvas.toDataURL('image/jpeg', 0.3);
-
-        try {
-          const response = await fetch('http://localhost:5000/api/analysis/detect-expression', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64Image })
-          });
-
-          const data = await response.json();
-          if (data.success && data.dominantExpression) {
-            const capitalized = data.dominantExpression.charAt(0).toUpperCase() + data.dominantExpression.slice(1);
-            setExpression(capitalized);
+        // 1. Face & Eye Analysis
+        if (faceLandmarkerRef.current) {
+          const result = faceLandmarkerRef.current.detectForVideo(video, startTimeMs);
+          if (result.faceBlendshapes && result.faceBlendshapes.length > 0) {
+            const shapes = result.faceBlendshapes[0].categories;
             
-            // Log for developer monitoring
-            console.log(`[AI Analysis] Expression: ${capitalized}`, data.allExpressions);
+            // Check for eye gaze / squinting
+            const eyeLookInL = shapes.find(s => s.categoryName === "eyeLookInLeft")?.score || 0;
+            const eyeLookInR = shapes.find(s => s.categoryName === "eyeLookInRight")?.score || 0;
+            const eyeLookOutL = shapes.find(s => s.categoryName === "eyeLookOutLeft")?.score || 0;
+            const eyeLookOutR = shapes.find(s => s.categoryName === "eyeLookOutRight")?.score || 0;
+
+            if (eyeLookInL > 0.4 || eyeLookInR > 0.4 || eyeLookOutL > 0.4 || eyeLookOutR > 0.4) {
+              setEyeStatus("Distracted");
+              console.log("[AI Tracker] Eye Movement: Distracted");
+            } else {
+              setEyeStatus("Focused");
+              // Only log focused status occasionally to avoid spamming the console
+              if (Math.random() < 0.05) {
+                console.log("[AI Tracker] Eye Movement: Focused");
+              }
+            }
           }
-        } catch (error) {
-          console.error("Analysis Error:", error);
+        }
+
+        // 2. Hand Tracking
+        if (handLandmarkerRef.current) {
+          const handResult = handLandmarkerRef.current.detectForVideo(video, startTimeMs);
+          if (handResult.landmarks && handResult.landmarks.length > 0) {
+            const count = handResult.landmarks.length;
+            setHandStatus(`${count} Hand${count > 1 ? 's' : ''} Detected`);
+            console.log(`[AI Tracker] Hand Activity: ${count} hands in frame`);
+          } else {
+            setHandStatus("None Detected");
+          }
+        }
+
+        // 3. Expression Analysis (Call backend less frequently to save resources)
+        if (Math.random() < 0.1) { // ~10% of frames for backend expression analysis
+           analyzeExpression(video);
         }
       }
+      requestRef.current = requestAnimationFrame(processVideo);
     };
 
-    const interval = setInterval(analyzeFace, 800); // Increased speed: Analyze every 800ms
-    return () => clearInterval(interval);
+    const analyzeExpression = async (video) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const context = canvas.getContext('2d');
+      canvas.width = 320;
+      canvas.height = 240;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const base64Image = canvas.toDataURL('image/jpeg', 0.3);
+
+      try {
+        const response = await fetch('http://localhost:5000/api/analysis/detect-expression', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64Image })
+        });
+        const data = await response.json();
+        if (data.success && data.dominantExpression) {
+          setExpression(data.dominantExpression.charAt(0).toUpperCase() + data.dominantExpression.slice(1));
+        }
+      } catch (err) { /* ignore */ }
+    };
+
+    requestRef.current = requestAnimationFrame(processVideo);
+    return () => cancelAnimationFrame(requestRef.current);
   }, [isVideoOff]);
 
   const stopCamera = () => {
@@ -124,7 +202,6 @@ const InterviewSession = () => {
 
   return (
     <div className="h-screen bg-[#050505] text-white flex flex-col overflow-hidden font-sans">
-      {/* Hidden canvas for capturing frames */}
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Top Header */}
@@ -163,7 +240,6 @@ const InterviewSession = () => {
              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
           </div>
           
-          {/* Speaking Animation */}
           {isInterviewerTalking && (
             <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-end gap-1 h-8">
               {[...Array(5)].map((_, i) => (
@@ -215,19 +291,23 @@ const InterviewSession = () => {
               <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Candidate</span>
             </div>
             
-            {/* Expression Indicator */}
-            <AnimatePresence mode="wait">
-              <motion.div 
-                key={expression}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="flex items-center gap-2 px-3 py-2 bg-white/5 backdrop-blur-md rounded-xl border border-white/10"
-              >
+            {/* Tracking Status Panel */}
+            <div className="flex flex-col gap-2">
+              <motion.div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl">
                 {getExpressionIcon(expression)}
-                <span className="text-xs font-bold text-white/80">{expression}</span>
+                <span className="text-[10px] font-bold text-white/80 uppercase tracking-tight">{expression}</span>
               </motion.div>
-            </AnimatePresence>
+
+              <motion.div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl">
+                <Eye className={cn("w-4 h-4", eyeStatus === 'Focused' ? "text-green-400" : "text-yellow-400")} />
+                <span className="text-[10px] font-bold text-white/80 uppercase tracking-tight">Eyes: {eyeStatus}</span>
+              </motion.div>
+
+              <motion.div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl">
+                <Hand className={cn("w-4 h-4", handStatus !== 'None Detected' ? "text-violet-400" : "text-white/20")} />
+                <span className="text-[10px] font-bold text-white/80 uppercase tracking-tight">Hands: {handStatus}</span>
+              </motion.div>
+            </div>
           </div>
         </div>
       </div>
