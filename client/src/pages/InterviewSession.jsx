@@ -8,7 +8,8 @@ import {
   Trophy, Target, ZapOff, CheckCircle2, X
 } from 'lucide-react';
 import { cn } from '../utils/cn';
-import interviewerImg from '../assets/interviewer.png';
+import { Canvas } from '@react-three/fiber';
+import Avatar from '../components/interview/Avatar';
 import { FilesetResolver, FaceLandmarker, HandLandmarker } from '@mediapipe/tasks-vision';
 
 const InterviewSession = () => {
@@ -51,17 +52,36 @@ const InterviewSession = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [timer, setTimer] = useState(0);
-  const [expression, setExpression] = useState('Neutral');
-  const [eyeStatus, setEyeStatus] = useState('Focused');
-  const [handStatus, setHandStatus] = useState('None Detected');
-  const [transcript, setTranscript] = useState('');
-  const [isInterviewerTalking, setIsInterviewerTalking] = useState(true);
+  const [isInterviewerTalking, setIsInterviewerTalking] = useState(false);
+  const [testInput, setTestInput] = useState('');
   
   // Accumulators for Analysis
   const [fullTranscript, setFullTranscript] = useState([]);
   const [behavioralLogs, setBehavioralLogs] = useState([]);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const speakText = (text) => {
+    if (!text) return;
+    window.speechSynthesis.cancel(); // Stop any current speech
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    utterance.onstart = () => setIsInterviewerTalking(true);
+    utterance.onend = () => setIsInterviewerTalking(false);
+    utterance.onerror = () => setIsInterviewerTalking(false);
+    
+    // Choose a professional voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => v.name.includes('Google US English')) || voices[0];
+    if (preferredVoice) utterance.voice = preferredVoice;
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const [expression, setExpression] = useState('Neutral');
+  const [eyeStatus, setEyeStatus] = useState('Focused');
+  const [handStatus, setHandStatus] = useState('None Detected');
+  const [transcript, setTranscript] = useState('');
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -132,11 +152,6 @@ const InterviewSession = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Interviewer Simulation
-  useEffect(() => {
-    const interval = setInterval(() => setIsInterviewerTalking(prev => !prev), 4000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Camera Streaming Logic
   useEffect(() => {
@@ -371,8 +386,30 @@ const InterviewSession = () => {
       <div className="flex-1 flex overflow-hidden p-8 gap-8 relative bg-[#050505]">
         <div className="flex-1 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 relative overflow-hidden shadow-2xl group transition-all duration-500 hover:border-cyan-500/20">
           <div className="absolute inset-0">
-             <img src={interviewerImg} alt="Interviewer" className="w-full h-full object-cover grayscale-[10%] brightness-[0.8] transition-all duration-700 group-hover:brightness-100 group-hover:grayscale-0" />
-             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+             <Canvas dpr={[1, 2]} shadows>
+                <Avatar isTalking={isInterviewerTalking} />
+             </Canvas>
+             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+          </div>
+
+          {/* TTS Test Input */}
+          <div className="absolute top-20 left-6 right-6 z-30">
+            <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-2 flex gap-2">
+              <input 
+                type="text" 
+                value={testInput}
+                onChange={(e) => setTestInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && speakText(testInput)}
+                placeholder="Ask AI to say something..."
+                className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder:text-white/20 px-3"
+              />
+              <button 
+                onClick={() => speakText(testInput)}
+                className="bg-cyan-500 hover:bg-cyan-400 text-black px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all active:scale-95"
+              >
+                Speak
+              </button>
+            </div>
           </div>
           {isInterviewerTalking && (
             <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-end gap-1 h-8">
