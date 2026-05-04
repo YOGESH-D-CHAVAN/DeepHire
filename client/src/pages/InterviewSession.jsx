@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Mic, MicOff, Video, VideoOff, PhoneOff,
-  MessageSquare, BarChart3, Settings,
-  AlertCircle, ChevronRight, Bot, User,
-  Smile, Frown, Meh, Zap, Eye, Hand, Type,
+  Mic, MicOff, Video, VideoOff,
+  Settings, AlertCircle, Bot, User,
+  Smile, Frown, Meh, Eye, Hand, Type,
   Trophy, Target, ZapOff, CheckCircle2, X
 } from 'lucide-react';
 import { cn } from '../utils/cn';
@@ -13,70 +12,18 @@ import Avatar from '../components/interview/Avatar';
 import { FilesetResolver, FaceLandmarker, HandLandmarker } from '@mediapipe/tasks-vision';
 
 const InterviewSession = () => {
-  // Suppress noisy MediaPipe/WASM logs
-  useEffect(() => {
-    const originalLog = console.log;
-    const originalWarn = console.warn;
-    const originalInfo = console.info;
-    const originalError = console.error;
-
-    const isNoise = (args) => {
-      const msg = args.join(' ');
-      return (
-        msg.includes('xnnpack') ||
-        msg.includes('vision_wasm') ||
-        msg.includes('gl_context') ||
-        msg.includes('landmark_projection') ||
-        msg.includes('OpenGL') ||
-        msg.includes('Graph successfully started') ||
-        msg.includes('NORM_RECT')
-      );
-    };
-
-    console.log = (...args) => { if (!isNoise(args)) originalLog(...args); };
-    console.warn = (...args) => { if (!isNoise(args)) originalWarn(...args); };
-    console.info = (...args) => { if (!isNoise(args)) originalInfo(...args); };
-    console.error = (...args) => { 
-      // Keep actual session errors, only filter MP noise
-      if (!isNoise(args)) originalError(...args); 
-    };
-
-    return () => {
-      console.log = originalLog;
-      console.warn = originalWarn;
-      console.info = originalInfo;
-      console.error = originalError;
-    };
-  }, []);
 
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [timer, setTimer] = useState(0);
   const [isInterviewerTalking, setIsInterviewerTalking] = useState(false);
-  const [testInput, setTestInput] = useState('');
-  
-  // Accumulators for Analysis
+
   const [fullTranscript, setFullTranscript] = useState([]);
-  const [behavioralLogs, setBehavioralLogs] = useState([]);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  const speakText = (text) => {
-    if (!text) return;
-    window.speechSynthesis.cancel(); // Stop any current speech
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    utterance.onstart = () => setIsInterviewerTalking(true);
-    utterance.onend = () => setIsInterviewerTalking(false);
-    utterance.onerror = () => setIsInterviewerTalking(false);
-    
-    // Choose a professional voice if available
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => v.name.includes('Google US English')) || voices[0];
-    if (preferredVoice) utterance.voice = preferredVoice;
-
-    window.speechSynthesis.speak(utterance);
-  };
+  const [threadId] = useState(`INT-${Date.now()}`);
+  const [isRecognitionActive, setIsRecognitionActive] = useState(false);
+  const [agentText, setAgentText] = useState("");
 
   const [expression, setExpression] = useState('Neutral');
   const [eyeStatus, setEyeStatus] = useState('Focused');
@@ -84,394 +31,216 @@ const InterviewSession = () => {
   const [transcript, setTranscript] = useState('');
 
   const videoRef = useRef(null);
-  const canvasRef = useRef(null);
   const streamRef = useRef(null);
-  const faceLandmarkerRef = useRef(null);
-  const handLandmarkerRef = useRef(null);
-  const requestRef = useRef(null);
   const recognitionRef = useRef(null);
 
-  // Initialize MediaPipe
+  // ================= VOICE SYSTEM =================
+
+  const speakText = (text) => {
+    if (!text) return;
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    utterance.onstart = () => setIsInterviewerTalking(true);
+    utterance.onend = () => setIsInterviewerTalking(false);
+    utterance.onerror = () => setIsInterviewerTalking(false);
+
+    const voices = window.speechSynthesis.getVoices();
+
+    const femaleKeywords = [
+      'female','zira','samantha','salli','joanna',
+      'ivy','kendra','kimberly','victoria',
+      'hazel','serena','moira'
+    ];
+
+    let selectedVoice =
+      voices.find(v =>
+        v.lang.startsWith('en') &&
+        femaleKeywords.some(k => v.name.toLowerCase().includes(k))
+      ) ||
+      voices.find(v => v.name.includes('Natural')) ||
+      voices.find(v => v.name.includes('Google US English')) ||
+      voices.find(v => v.lang.startsWith('en')) ||
+      voices[0];
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+      utterance.pitch = 1.1;
+      utterance.rate = 0.95;
+    }
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const stopAgentSpeech = () => {
+    window.speechSynthesis.cancel();
+    setIsInterviewerTalking(false);
+  };
+
+  // preload voices
   useEffect(() => {
-    const initMediaPipe = async () => {
-      const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm");
-      faceLandmarkerRef.current = await FaceLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`, delegate: "GPU" },
-        outputFaceBlendshapes: true, runningMode: "VIDEO", numFaces: 1
-      });
-      handLandmarkerRef.current = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`, delegate: "GPU" },
-        runningMode: "VIDEO", numHands: 2
-      });
-    };
-    initMediaPipe();
+    const loadVoices = () => window.speechSynthesis.getVoices();
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
   }, []);
 
-  // Initialize Web Speech API
+  // ================= AGENT =================
+
+  const handleAgentMessage = async (message) => {
+    if (!message || message.trim().length < 2) return;
+
+    const res = await fetch('http://localhost:4000/api/interview/message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, threadId })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      setAgentText(data.response);
+      speakText(data.response);
+    }
+  };
+
+  // ================= SPEECH RECOGNITION =================
+
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'en-US';
+    if (!SpeechRecognition) return;
 
-      recognitionRef.current.onresult = (event) => {
-        let currentTranscript = '';
-        for (let i = 0; i < event.results.length; ++i) {
-          currentTranscript += event.results[i][0].transcript;
+    recognitionRef.current = new SpeechRecognition();
+    recognitionRef.current.continuous = true;
+    recognitionRef.current.interimResults = true;
+    recognitionRef.current.lang = 'en-US';
+
+    recognitionRef.current.onstart = () => {
+      if (isInterviewerTalking) {
+        recognitionRef.current.stop();
+        return;
+      }
+      setIsRecognitionActive(true);
+    };
+
+    recognitionRef.current.onresult = (event) => {
+      let interim = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          const text = event.results[i][0].transcript;
+
+          setFullTranscript(prev => [...prev, text]);
+          handleAgentMessage(text);
+          setTranscript('');
+        } else {
+          interim += event.results[i][0].transcript;
         }
-        setTranscript(currentTranscript);
-        
-        const lastResult = event.results[event.results.length - 1];
-        if (lastResult.isFinal) {
-          const text = lastResult[0].transcript;
-          setFullTranscript(prev => [...prev, { text, timestamp: new Date().toISOString() }]);
-          console.log(`[Speech API] Final: ${text}`);
-        }
-      };
+      }
 
-      recognitionRef.current.onend = () => {
-        if (!isMuted && recognitionRef.current) {
-          setTimeout(() => { try { recognitionRef.current.start(); } catch (err) {} }, 1000);
-        }
-      };
+      setTranscript(interim);
+    };
 
-      recognitionRef.current.onerror = (event) => {
-        if (event.error !== 'no-speech' && event.error !== 'aborted') console.error('[Speech API] Error:', event.error);
-      };
+    recognitionRef.current.onend = () => {
+      setIsRecognitionActive(false);
+      if (!isMuted && !isInterviewerTalking) {
+        setTimeout(() => {
+          try { recognitionRef.current.start(); } catch {}
+        }, 300);
+      }
+    };
 
-      if (!isMuted) recognitionRef.current.start();
+    if (!isMuted && !isInterviewerTalking) {
+      try { recognitionRef.current.start(); } catch {}
     }
-    return () => { if (recognitionRef.current) recognitionRef.current.stop(); };
-  }, [isMuted]);
 
-  // Timer
+    return () => recognitionRef.current?.stop();
+
+  }, [isMuted, isInterviewerTalking]);
+
+  // ================= TIMER =================
+
   useEffect(() => {
     const interval = setInterval(() => setTimer(t => t + 1), 1000);
     return () => clearInterval(interval);
   }, []);
 
+  // ================= CAMERA =================
 
-  // Camera Streaming Logic
   useEffect(() => {
     const enableCamera = async () => {
-      try {
-        if (!isVideoOff) {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'user' }, audio: true });
-          streamRef.current = stream;
-          if (videoRef.current) videoRef.current.srcObject = stream;
-        } else { stopCamera(); }
-      } catch (err) { console.error("Error accessing camera:", err); }
+      if (isVideoOff) return;
+
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
+      videoRef.current.srcObject = stream;
     };
+
     enableCamera();
-    return () => stopCamera();
+
+    return () => {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    };
   }, [isVideoOff]);
 
-  // Real-time Tracking Loop
-  useEffect(() => {
-    if (isVideoOff) return;
-    const processVideo = async () => {
-      if (videoRef.current && videoRef.current.readyState === 4) {
-        const startTimeMs = performance.now();
-        const video = videoRef.current;
-        let currentEye = 'Focused';
-        let currentHand = 'None Detected';
-        let currentExpression = 'Neutral';
-
-        if (faceLandmarkerRef.current) {
-          const result = faceLandmarkerRef.current.detectForVideo(video, startTimeMs);
-          if (result.faceBlendshapes && result.faceBlendshapes.length > 0) {
-            const shapes = result.faceBlendshapes[0].categories;
-            
-            // 1. Eye Tracking (Improved)
-            const eyeLookInL = shapes.find(s => s.categoryName === "eyeLookInLeft")?.score || 0;
-            const eyeLookInR = shapes.find(s => s.categoryName === "eyeLookInRight")?.score || 0;
-            const eyeLookOutL = shapes.find(s => s.categoryName === "eyeLookOutLeft")?.score || 0;
-            const eyeLookOutR = shapes.find(s => s.categoryName === "eyeLookOutRight")?.score || 0;
-            if (eyeLookInL > 0.4 || eyeLookInR > 0.4 || eyeLookOutL > 0.4 || eyeLookOutR > 0.4) currentEye = "Distracted";
-            setEyeStatus(currentEye);
-
-            // 2. High-Efficiency Emotion Mapping
-            const smileL = shapes.find(s => s.categoryName === "mouthSmileLeft")?.score || 0;
-            const smileR = shapes.find(s => s.categoryName === "mouthSmileRight")?.score || 0;
-            const frownL = shapes.find(s => s.categoryName === "mouthFrownLeft")?.score || 0;
-            const frownR = shapes.find(s => s.categoryName === "mouthFrownRight")?.score || 0;
-            const browUp = shapes.find(s => s.categoryName === "browInnerUp")?.score || 0;
-            const browDownL = shapes.find(s => s.categoryName === "browDownLeft")?.score || 0;
-            const browDownR = shapes.find(s => s.categoryName === "browDownRight")?.score || 0;
-            const jawOpen = shapes.find(s => s.categoryName === "jawOpen")?.score || 0;
-
-            if (smileL > 0.4 && smileR > 0.4) currentExpression = "Happy";
-            else if (frownL > 0.3 || frownR > 0.3) currentExpression = "Sad";
-            else if (browDownL > 0.4 || browDownR > 0.4) currentExpression = "Angry";
-            else if (browUp > 0.5 && jawOpen > 0.2) currentExpression = "Surprised";
-            else if (jawOpen > 0.4) currentExpression = "Focused";
-            
-            setExpression(currentExpression);
-          }
-        }
-
-        if (handLandmarkerRef.current) {
-          const handResult = handLandmarkerRef.current.detectForVideo(video, startTimeMs);
-          if (handResult.landmarks && handResult.landmarks.length > 0) currentHand = `${handResult.landmarks.length} Hand(s) Detected`;
-          setHandStatus(currentHand);
-        }
-
-        // Precise behavioral logging
-        if (Math.floor(performance.now() / 2000) % 1 === 0 && Math.random() < 0.1) {
-          setBehavioralLogs(prev => [...prev, { 
-            expression: currentExpression, 
-            eyeStatus: currentEye, 
-            handStatus: currentHand, 
-            timestamp: new Date().toISOString() 
-          }]);
-        }
-      }
-      requestRef.current = requestAnimationFrame(processVideo);
-    };
-
-    requestRef.current = requestAnimationFrame(processVideo);
-    return () => cancelAnimationFrame(requestRef.current);
-  }, [isVideoOff, expression]);
-
-  const stopCamera = () => { if (streamRef.current) { streamRef.current.getTracks().forEach(track => track.stop()); streamRef.current = null; } };
-  const formatTime = (seconds) => { const mins = Math.floor(seconds / 60); const secs = seconds % 60; return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`; };
-  const getExpressionIcon = (exp) => {
-    switch (exp.toLowerCase()) {
-      case 'happy': return <Smile className="w-4 h-4 text-green-400" />;
-      case 'sad': return <Frown className="w-4 h-4 text-blue-400" />;
-      case 'angry': return <AlertCircle className="w-4 h-4 text-red-400" />;
-      default: return <Meh className="w-4 h-4 text-cyan-400" />;
-    }
-  };
-
-  const handleEndInterview = async () => {
-    setIsAnalyzing(true);
-    try {
-      const response = await fetch('http://localhost:5000/api/analysis/analyze-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: fullTranscript, behavioralLogs })
-      });
-      const data = await response.json();
-      if (data.success) {
-        setAnalysisResult(data.analysis);
-      }
-    } catch (err) {
-      console.error("End Interview Error:", err);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
+  // ================= UI =================
 
   return (
-    <div className="h-screen bg-[#050505] text-white flex flex-col overflow-hidden font-sans">
-      <canvas ref={canvasRef} className="hidden" />
+    <div className="h-screen bg-black text-white flex flex-col">
 
-      {/* Analysis Modal */}
-      <AnimatePresence>
-        {analysisResult && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-              className="bg-[#0a0a0a] border border-white/10 rounded-[3rem] w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl relative"
-            >
-              <button 
-                onClick={() => setAnalysisResult(null)}
-                className="absolute top-8 right-8 p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors z-10"
-              >
-                <X className="w-6 h-6 text-white/40" />
-              </button>
-
-              <div className="p-12 overflow-y-auto custom-scrollbar">
-                <div className="flex items-center gap-6 mb-12">
-                  <div className="w-24 h-24 rounded-3xl bg-cyan-500/20 flex items-center justify-center border border-cyan-500/20">
-                    <Trophy className="w-12 h-12 text-cyan-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-4xl font-black tracking-tight mb-2">Performance Analysis</h2>
-                    <div className="flex items-center gap-3">
-                      <div className="px-3 py-1 bg-cyan-500 rounded-full text-[10px] font-black uppercase text-[#0a0a0a]">DeepHire AI Score</div>
-                      <span className="text-3xl font-mono font-black text-cyan-400">{analysisResult.score}/100</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                  <div className="p-8 rounded-[2rem] bg-white/5 border border-white/5">
-                    <div className="flex items-center gap-3 mb-6">
-                      <Target className="w-5 h-5 text-green-400" />
-                      <h3 className="font-bold text-lg uppercase tracking-widest text-white/40 text-xs">Core Strengths</h3>
-                    </div>
-                    <ul className="space-y-4">
-                      {analysisResult.strengths.map((s, i) => (
-                        <li key={i} className="flex items-start gap-3 text-sm text-white/80 font-medium">
-                          <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                          {s}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="p-8 rounded-[2rem] bg-white/5 border border-white/5">
-                    <div className="flex items-center gap-3 mb-6">
-                      <ZapOff className="w-5 h-5 text-red-400" />
-                      <h3 className="font-bold text-lg uppercase tracking-widest text-white/40 text-xs">Areas to Improve</h3>
-                    </div>
-                    <ul className="space-y-4">
-                      {analysisResult.weaknesses.map((w, i) => (
-                        <li key={i} className="flex items-start gap-3 text-sm text-white/80 font-medium">
-                          <div className="w-4 h-4 rounded-full border border-red-500/30 flex items-center justify-center mt-0.5 flex-shrink-0">
-                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full" />
-                          </div>
-                          {w}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="p-8 rounded-[2rem] bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10">
-                  <h3 className="font-bold mb-4 uppercase tracking-widest text-white/40 text-xs">AI Interviewer Feedback</h3>
-                  <p className="text-white/80 leading-relaxed font-medium italic">"{analysisResult.feedback}"</p>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Loading Overlay */}
-      <AnimatePresence>
-        {isAnalyzing && (
-          <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/80 backdrop-blur-xl">
-             <div className="relative mb-8">
-                <motion.div 
-                  animate={{ rotate: 360 }} transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                  className="w-24 h-24 rounded-full border-2 border-dashed border-cyan-500/20"
-                />
-                <motion.div 
-                  animate={{ rotate: -360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="absolute inset-2 rounded-full border-t-2 border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.5)]"
-                />
-             </div>
-             <h3 className="text-xl font-black uppercase tracking-[0.3em] text-white">Analyzing Session</h3>
-             <p className="text-white/40 text-sm mt-2 font-medium">Groq Intelligence is evaluating your performance...</p>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <header className="h-16 px-6 flex items-center justify-between border-b border-white/5 bg-[#0a0a0a]">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-xs font-bold uppercase tracking-widest text-white/60">Live Interview</span>
-          </div>
-          <div className="h-4 w-[1px] bg-white/10" />
-          <span className="text-sm font-medium text-cyan-400">Senior Software Engineer Role</span>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="flex flex-col items-end">
-            <span className="text-[10px] text-white/40 uppercase font-bold tracking-tighter">Duration</span>
-            <span className="text-sm font-mono font-bold text-white">{formatTime(timer)}</span>
-          </div>
-          <button className="p-2 hover:bg-white/5 rounded-lg transition-colors"><Settings className="w-5 h-5 text-white/40" /></button>
-        </div>
+      <header className="h-16 flex justify-between px-6 items-center border-b border-white/10">
+        <span>Interview Session</span>
+        <span>{Math.floor(timer / 60)}:{timer % 60}</span>
       </header>
 
-      <div className="flex-1 flex overflow-hidden p-8 gap-8 relative bg-[#050505]">
-        <div className="flex-1 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 relative overflow-hidden shadow-2xl group transition-all duration-500 hover:border-cyan-500/20">
-          <div className="absolute inset-0">
-             <Canvas dpr={[1, 2]} shadows>
-                <Avatar isTalking={isInterviewerTalking} />
-             </Canvas>
-             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
-          </div>
+      <div className="flex flex-1">
 
-          {/* TTS Test Input */}
-          <div className="absolute top-20 left-6 right-6 z-30">
-            <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-2 flex gap-2">
-              <input 
-                type="text" 
-                value={testInput}
-                onChange={(e) => setTestInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && speakText(testInput)}
-                placeholder="Ask AI to say something..."
-                className="flex-1 bg-transparent border-none outline-none text-xs text-white placeholder:text-white/20 px-3"
-              />
-              <button 
-                onClick={() => speakText(testInput)}
-                className="bg-cyan-500 hover:bg-cyan-400 text-black px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all active:scale-95"
-              >
-                Speak
-              </button>
-            </div>
-          </div>
-          {isInterviewerTalking && (
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-end gap-1 h-8">
-              {[...Array(5)].map((_, i) => (<motion.div key={i} animate={{ height: [8, 24, 12, 32, 8] }} transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }} className="w-1.5 bg-cyan-500 rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]" />))}
+        {/* AI Panel */}
+        <div className="flex-1 flex flex-col items-center justify-center relative">
+
+          <Canvas>
+            <Avatar expression={expression} isTalking={isInterviewerTalking} />
+          </Canvas>
+
+          {agentText && (
+            <div className="absolute bottom-10 bg-black/60 p-4 rounded-xl">
+              {agentText}
+              {isInterviewerTalking && (
+                <button onClick={stopAgentSpeech}>Stop</button>
+              )}
             </div>
           )}
-          <div className="absolute top-6 left-6 z-20">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-xl border border-white/10">
-              <div className={cn("w-1.5 h-1.5 rounded-full", isInterviewerTalking ? "bg-cyan-500 animate-pulse" : "bg-white/20")} />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/60">{isInterviewerTalking ? "Speaking..." : "Interviewer"}</span>
-            </div>
-          </div>
         </div>
 
-        <div className="flex-1 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 relative overflow-hidden shadow-2xl group transition-all duration-500 hover:border-violet-500/20">
-          {!isVideoOff ? (
-            <div className="absolute inset-0 bg-black flex items-center justify-center">
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover grayscale-[20%] contrast-[1.1]" />
-              <div className="absolute top-8 left-8 w-6 h-6 border-t-2 border-l-2 border-white/20 rounded-tl-lg" /><div className="absolute top-8 right-8 w-6 h-6 border-t-2 border-r-2 border-white/20 rounded-tr-lg" /><div className="absolute bottom-8 left-8 w-6 h-6 border-b-2 border-l-2 border-white/20 rounded-bl-lg" /><div className="absolute bottom-8 right-8 w-6 h-6 border-b-2 border-r-2 border-white/20 rounded-br-lg" />
-            </div>
-          ) : (
-            <div className="absolute inset-0 bg-[#050505] flex items-center justify-center">
-              <div className="w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center"><User className="w-10 h-10 text-white/20" /></div>
+        {/* User Panel */}
+        <div className="flex-1 relative">
+          {!isVideoOff && <video ref={videoRef} autoPlay muted className="w-full h-full object-cover" />}
+
+          {transcript && (
+            <div className="absolute bottom-10 bg-black/60 p-3 rounded-xl">
+              {transcript}
             </div>
           )}
-          <div className="absolute top-6 right-6 z-20 flex flex-col items-end gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-xl border border-white/10">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Candidate</span>
-            </div>
-            <div className="flex flex-col gap-2">
-              <motion.div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl">{getExpressionIcon(expression)}<span className="text-[10px] font-bold text-white/80 uppercase tracking-tight">{expression}</span></motion.div>
-              <motion.div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl"><Eye className={cn("w-4 h-4", eyeStatus === 'Focused' ? "text-green-400" : "text-yellow-400")} /><span className="text-[10px] font-bold text-white/80 uppercase tracking-tight">Eyes: {eyeStatus}</span></motion.div>
-              <motion.div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl"><Hand className={cn("w-4 h-4", handStatus !== 'None Detected' ? "text-violet-400" : "text-white/20")} /><span className="text-[10px] font-bold text-white/80 uppercase tracking-tight">Hands: {handStatus}</span></motion.div>
-            </div>
-          </div>
-          <AnimatePresence>
-            {transcript && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="absolute bottom-12 left-8 right-8 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl z-30">
-                <div className="flex items-start gap-3"><div className="mt-1 w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0"><Type className="w-3 h-3 text-cyan-500" /></div><p className="text-sm font-medium text-white/90 leading-relaxed italic">"{transcript}"</p></div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
+
       </div>
 
-      <footer className="h-28 bg-[#0a0a0a] border-t border-white/5 px-12 flex items-center justify-between">
-        <div className="flex items-center gap-8">
-          <div className="flex flex-col"><span className="text-[9px] text-white/20 uppercase font-black tracking-[0.2em] mb-1">Session Target</span><span className="text-sm font-bold text-white/80">Senior React Engineer</span></div>
-        </div>
-        <div className="flex items-center gap-5">
-          <button onClick={() => setIsMuted(!isMuted)} className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 border", isMuted ? "bg-red-500 border-red-400 text-white shadow-lg shadow-red-500/20" : "bg-white/5 border-white/5 text-white/40 hover:text-white hover:border-white/20")}>{isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}</button>
-          <button onClick={() => setIsVideoOff(!isVideoOff)} className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 border", isVideoOff ? "bg-red-500 border-red-400 text-white shadow-lg shadow-red-500/20" : "bg-white/5 border-white/5 text-white/40 hover:text-white hover:border-white/20")}>{isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}</button>
-          <button 
-            onClick={handleEndInterview}
-            className="px-10 h-14 rounded-2xl bg-white text-black font-black text-xs uppercase tracking-widest hover:bg-white/90 transition-all active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.1)]"
-          >
-            End Interview
-          </button>
-        </div>
-        <div className="flex items-center gap-4"><button className="p-3 rounded-xl bg-white/5 border border-white/5 text-white/40 hover:text-white transition-colors"><Settings className="w-5 h-5" /></button></div>
+      <footer className="h-20 flex justify-center gap-6 items-center border-t border-white/10">
+
+        <button onClick={() => setIsMuted(!isMuted)}>
+          {isMuted ? <MicOff /> : <Mic />}
+        </button>
+
+        <button onClick={() => setIsVideoOff(!isVideoOff)}>
+          {isVideoOff ? <VideoOff /> : <Video />}
+        </button>
+
+        <button onClick={() => handleAgentMessage("End interview")}>
+          End
+        </button>
+
       </footer>
+
     </div>
   );
 };

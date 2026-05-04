@@ -1,35 +1,50 @@
 import * as faceapi from 'face-api.js';
-import canvas from 'canvas';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Groq from 'groq-sdk';
 
-const { Canvas, Image, ImageData } = canvas;
-faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
+// Lazy load canvas to prevent server crash if build fails
+let canvas;
+try {
+    canvas = (await import('canvas')).default;
+    const { Canvas, Image, ImageData } = canvas;
+    faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
+} catch (e) {
+    console.warn('⚠️ [WARNING] canvas module not found or failed to load. Facial expression detection will be disabled.');
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const groq = new Groq({
-    apiKey: process.env.GROQ_API_KEY
-});
+// Lazy load Groq to ensure env vars are ready
+let groq;
+const getGroq = () => {
+    if (!groq) {
+        groq = new Groq({
+            apiKey: process.env.GROQ_API_KEY
+        });
+    }
+    return groq;
+};
 
 let modelsLoaded = false;
 
 const loadModels = async () => {
-    if (modelsLoaded) return;
+    if (modelsLoaded || !canvas) return;
     const modelPath = path.join(__dirname, '../public/models');
     try {
         await faceapi.nets.tinyFaceDetector.loadFromDisk(modelPath);
         await faceapi.nets.faceExpressionNet.loadFromDisk(modelPath);
         modelsLoaded = true;
-        console.log('Face API models loaded successfully');
+        console.log('✅ Face API models loaded successfully');
     } catch (error) {
-        console.error('Error loading Face API models:', error);
+        console.error('❌ Error loading Face API models:', error);
     }
 };
 
-loadModels();
+if (canvas) {
+    loadModels();
+}
 
 export const analyzeSession = async (req, res) => {
     console.log(">>> [DEBUG] analyzeSession started");
@@ -57,7 +72,7 @@ export const analyzeSession = async (req, res) => {
         let analysis;
         try {
             console.log(">>> [DEBUG] Calling Groq...");
-            const chatCompletion = await groq.chat.completions.create({
+            const chatCompletion = await getGroq().chat.completions.create({
                 messages: [
                     { role: 'system', content: 'You are an interviewer. Output JSON only.' },
                     { role: 'user', content: prompt }
@@ -102,6 +117,10 @@ export const detectExpression = async (req, res) => {
     try {
         const { image } = req.body;
         if (!image) return res.status(400).json({ error: 'No image provided' });
+
+        if (!canvas) {
+            return res.status(503).json({ success: false, error: 'Facial detection module unavailable on server.' });
+        }
 
         if (!modelsLoaded) await loadModels();
 
