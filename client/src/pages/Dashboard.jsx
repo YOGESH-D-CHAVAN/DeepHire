@@ -3,8 +3,8 @@ import Navbar from '../components/layout/Navbar';
 import Sidebar from '../components/layout/Sidebar';
 import Footer from '../components/layout/Footer';
 import StatCard from '../components/dashboard/StatCard';
-import InterviewInterface from '../components/dashboard/InterviewInterface';
-import { Video, Award, Target, Clock, ArrowUpRight, CheckCircle2 } from 'lucide-react';
+import InterviewSetup from '../components/dashboard/InterviewSetup';
+import { Video, Award, Target, Clock } from 'lucide-react';
 
 const Dashboard = () => {
   return (
@@ -14,7 +14,7 @@ const Dashboard = () => {
       <main className="flex-1 ml-64 flex flex-col">
         <Navbar />
         
-        <div className="p-8 max-w-7xl mx-auto space-y-8 flex-1">
+        <div className="p-8 w-full px-10 space-y-8 flex-1">
           {/* Welcome Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
@@ -58,72 +58,16 @@ const Dashboard = () => {
             />
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Interview Area */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Video className="w-5 h-5 text-cyan-400" />
-                  Active AI Session
-                </h2>
-                <button className="text-sm text-cyan-400 hover:underline">View Guidelines</button>
-              </div>
-              <InterviewInterface />
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold flex items-center gap-2">
+                <Video className="w-4 h-4 text-cyan-400" />
+                Active AI Session
+              </h2>
+              <button className="text-sm text-cyan-400 hover:underline">View Guidelines</button>
             </div>
-
-            {/* Sidebar Content */}
-            <div className="space-y-8">
-              {/* Upcoming Interviews */}
-              <section>
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-violet-400" />
-                  Upcoming
-                </h2>
-                <div className="space-y-4">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="p-4 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 transition-colors cursor-pointer group">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="text-xs font-bold px-2 py-1 bg-cyan-500/10 text-cyan-400 rounded-lg">Technical</span>
-                        <ArrowUpRight className="w-4 h-4 text-white/20 group-hover:text-white transition-colors" />
-                      </div>
-                      <h4 className="font-bold text-white mb-1">Senior React Developer</h4>
-                      <p className="text-xs text-white/40 mb-3">Google • May 15, 2026</p>
-                      <div className="flex items-center gap-2">
-                        <div className="flex -space-x-2">
-                           <div className="w-6 h-6 rounded-full border border-[#0a0a0a] bg-gray-800" />
-                           <div className="w-6 h-6 rounded-full border border-[#0a0a0a] bg-gray-700" />
-                        </div>
-                        <span className="text-[10px] text-white/20">+2 interviewers</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-
-              {/* Recent Feedback */}
-              <section>
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-400" />
-                  Recent Feedback
-                </h2>
-                <div className="p-6 rounded-3xl bg-gradient-to-br from-violet-500/10 to-transparent border border-white/5">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-2xl bg-violet-500/20 flex items-center justify-center border border-violet-500/30">
-                       <Award className="w-6 h-6 text-violet-400" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-white">System Design Pro</p>
-                      <p className="text-xs text-white/40">Last session score: 92/100</p>
-                    </div>
-                  </div>
-                  <p className="text-sm text-white/60 leading-relaxed italic">
-                    "Excellent articulation of microservices architecture. Focus slightly more on database sharding strategy next time."
-                  </p>
-                  <button className="w-full mt-4 py-2 border border-white/10 rounded-xl text-xs font-bold hover:bg-white/5 transition-colors">
-                    Download Full Report
-                  </button>
-                </div>
-              </section>
+            <div>
+              <InterviewSetup />
             </div>
           </div>
         </div>
