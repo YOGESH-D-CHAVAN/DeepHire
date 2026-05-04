@@ -70,13 +70,54 @@ const InterviewSession = () => {
     utterance.onend = () => setIsInterviewerTalking(false);
     utterance.onerror = () => setIsInterviewerTalking(false);
     
-    // Choose a professional voice if available
+    // Professional female voice selection
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => v.name.includes('Google US English')) || voices[0];
-    if (preferredVoice) utterance.voice = preferredVoice;
+    
+    // Comprehensive list of female voice identifiers
+    const femaleKeywords = ['female', 'zira', 'samantha', 'salli', 'joanna', 'ivy', 'kendra', 'kimberly', 'victoria', 'hazel', 'serena', 'moira'];
+    
+    // 1. Try to find an English female voice specifically
+    let selectedVoice = voices.find(v => {
+      const name = v.name.toLowerCase();
+      const isEnglish = v.lang.startsWith('en');
+      return isEnglish && femaleKeywords.some(key => name.includes(key));
+    });
+
+    // 2. Fallback to any English voice that has 'female' in the name if first pass failed
+    if (!selectedVoice) {
+      selectedVoice = voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female'));
+    }
+
+    // 3. Fallback to Google US English (often has a natural tone)
+    if (!selectedVoice) {
+      selectedVoice = voices.find(v => v.name.includes('Google US English'));
+    }
+
+    // 4. Last resort: any available English voice
+    if (!selectedVoice) {
+      selectedVoice = voices.find(v => v.lang.startsWith('en'));
+    }
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+      // Slightly higher pitch often sounds more feminine if the voice is ambiguous
+      utterance.pitch = 1.15; 
+      utterance.rate = 0.95; // Slightly slower for professional clarity
+    }
 
     window.speechSynthesis.speak(utterance);
   };
+
+  // Pre-load voices to ensure they are available when speakText is called
+  useEffect(() => {
+    const loadVoices = () => {
+      window.speechSynthesis.getVoices();
+    };
+    loadVoices();
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
 
   const [expression, setExpression] = useState('Neutral');
   const [eyeStatus, setEyeStatus] = useState('Focused');
