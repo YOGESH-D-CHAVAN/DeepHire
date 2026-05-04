@@ -5,7 +5,7 @@ import { FaGithub, FaTwitter, FaLinkedinIn } from 'react-icons/fa';
 const Footer = () => {
   return (
     <footer className="bg-[#0a0a0a] border-t border-white/5 pt-16 pb-8 px-8">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
+      <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
         {/* Brand Section */}
         <div className="space-y-6">
           <div className="flex items-center gap-2">
@@ -73,7 +73,7 @@ const Footer = () => {
       </div>
 
       {/* Bottom Bar */}
-      <div className="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="w-full pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
         <p className="text-xs text-white/20">
           © 2026 DeepHire Inc. All rights reserved.
         </p>
