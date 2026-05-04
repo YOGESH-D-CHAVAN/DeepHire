@@ -162,17 +162,38 @@ const InterviewSession = () => {
         const video = videoRef.current;
         let currentEye = 'Focused';
         let currentHand = 'None Detected';
+        let currentExpression = 'Neutral';
 
         if (faceLandmarkerRef.current) {
           const result = faceLandmarkerRef.current.detectForVideo(video, startTimeMs);
           if (result.faceBlendshapes && result.faceBlendshapes.length > 0) {
             const shapes = result.faceBlendshapes[0].categories;
+            
+            // 1. Eye Tracking (Improved)
             const eyeLookInL = shapes.find(s => s.categoryName === "eyeLookInLeft")?.score || 0;
             const eyeLookInR = shapes.find(s => s.categoryName === "eyeLookInRight")?.score || 0;
             const eyeLookOutL = shapes.find(s => s.categoryName === "eyeLookOutLeft")?.score || 0;
             const eyeLookOutR = shapes.find(s => s.categoryName === "eyeLookOutRight")?.score || 0;
             if (eyeLookInL > 0.4 || eyeLookInR > 0.4 || eyeLookOutL > 0.4 || eyeLookOutR > 0.4) currentEye = "Distracted";
             setEyeStatus(currentEye);
+
+            // 2. High-Efficiency Emotion Mapping
+            const smileL = shapes.find(s => s.categoryName === "mouthSmileLeft")?.score || 0;
+            const smileR = shapes.find(s => s.categoryName === "mouthSmileRight")?.score || 0;
+            const frownL = shapes.find(s => s.categoryName === "mouthFrownLeft")?.score || 0;
+            const frownR = shapes.find(s => s.categoryName === "mouthFrownRight")?.score || 0;
+            const browUp = shapes.find(s => s.categoryName === "browInnerUp")?.score || 0;
+            const browDownL = shapes.find(s => s.categoryName === "browDownLeft")?.score || 0;
+            const browDownR = shapes.find(s => s.categoryName === "browDownRight")?.score || 0;
+            const jawOpen = shapes.find(s => s.categoryName === "jawOpen")?.score || 0;
+
+            if (smileL > 0.4 && smileR > 0.4) currentExpression = "Happy";
+            else if (frownL > 0.3 || frownR > 0.3) currentExpression = "Sad";
+            else if (browDownL > 0.4 || browDownR > 0.4) currentExpression = "Angry";
+            else if (browUp > 0.5 && jawOpen > 0.2) currentExpression = "Surprised";
+            else if (jawOpen > 0.4) currentExpression = "Focused";
+            
+            setExpression(currentExpression);
           }
         }
 
@@ -182,28 +203,17 @@ const InterviewSession = () => {
           setHandStatus(currentHand);
         }
 
-        // Add to logs every 2 seconds
-        if (Math.floor(performance.now() / 2000) % 1 === 0 && Math.random() < 0.05) {
-          setBehavioralLogs(prev => [...prev, { expression, eyeStatus: currentEye, handStatus: currentHand, timestamp: new Date().toISOString() }]);
+        // Precise behavioral logging
+        if (Math.floor(performance.now() / 2000) % 1 === 0 && Math.random() < 0.1) {
+          setBehavioralLogs(prev => [...prev, { 
+            expression: currentExpression, 
+            eyeStatus: currentEye, 
+            handStatus: currentHand, 
+            timestamp: new Date().toISOString() 
+          }]);
         }
-
-        if (Math.random() < 0.05) analyzeExpression(video);
       }
       requestRef.current = requestAnimationFrame(processVideo);
-    };
-
-    const analyzeExpression = async (video) => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const context = canvas.getContext('2d');
-      canvas.width = 320; canvas.height = 240;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const base64Image = canvas.toDataURL('image/jpeg', 0.3);
-      try {
-        const response = await fetch('http://localhost:5000/api/analysis/detect-expression', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image: base64Image }) });
-        const data = await response.json();
-        if (data.success && data.dominantExpression) setExpression(data.dominantExpression.charAt(0).toUpperCase() + data.dominantExpression.slice(1));
-      } catch (err) {}
     };
 
     requestRef.current = requestAnimationFrame(processVideo);
