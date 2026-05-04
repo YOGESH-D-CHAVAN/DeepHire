@@ -11,8 +11,11 @@ import { cn } from '../utils/cn';
 import { Canvas } from '@react-three/fiber';
 import Avatar from '../components/interview/Avatar';
 import { FilesetResolver, FaceLandmarker, HandLandmarker } from '@mediapipe/tasks-vision';
+import { useUser } from '@clerk/clerk-react';
 
 const InterviewSession = () => {
+  const { user } = useUser();
+  const [sessionStartTime] = useState(new Date());
   // Suppress noisy MediaPipe/WASM logs
   useEffect(() => {
     const originalLog = console.log;
@@ -293,7 +296,13 @@ const InterviewSession = () => {
       const response = await fetch('http://localhost:5000/api/analysis/analyze-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: fullTranscript, behavioralLogs })
+        body: JSON.stringify({ 
+          userId: user?.id,
+          transcript: fullTranscript, 
+          behavioralLogs,
+          startTime: sessionStartTime,
+          endTime: new Date()
+        })
       });
       const data = await response.json();
       if (data.success) {

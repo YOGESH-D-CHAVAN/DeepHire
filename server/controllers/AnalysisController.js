@@ -3,6 +3,7 @@ import canvas from 'canvas';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Groq from 'groq-sdk';
+import InterviewSession from '../models/InterviewSession.js';
 
 const { Canvas, Image, ImageData } = canvas;
 faceapi.env.monkeyPatch({ Canvas, Image, ImageData });
@@ -34,14 +35,14 @@ loadModels();
 export const analyzeSession = async (req, res) => {
     console.log(">>> [DEBUG] analyzeSession started");
     try {
-        const { transcript, behavioralLogs } = req.body;
+        const { userId, transcript, behavioralLogs, startTime, endTime } = req.body;
 
-        if (!transcript || !behavioralLogs) {
+        if (!userId || !transcript || !behavioralLogs) {
             console.log(">>> [DEBUG] Missing data");
             return res.status(400).json({ error: 'Missing session data' });
         }
 
-        console.log(`>>> [DEBUG] Data size - Transcript: ${transcript.length}, Logs: ${behavioralLogs.length}`);
+        console.log(`>>> [DEBUG] Data size - User: ${userId}, Transcript: ${transcript.length}, Logs: ${behavioralLogs.length}`);
 
         // Safety slice
         const slicedTranscript = transcript.slice(-30);
@@ -74,19 +75,32 @@ export const analyzeSession = async (req, res) => {
             }
         } catch (groqErr) {
             console.error(">>> [DEBUG] Groq Call Failed:", groqErr.message);
-            // Fallback Analysis if Groq fails
             analysis = {
                 score: 70,
                 summary: "AI Analysis currently unavailable, but your session data was captured.",
                 strengths: ["Session completed successfully", "Video/Audio stream maintained"],
                 weaknesses: ["AI feedback engine timeout"],
-                feedback: "We were unable to reach our AI engine for a detailed report, but based on your activity, you maintained a steady pace. Error: " + groqErr.message
+                feedback: "We were unable to reach our AI engine for a detailed report. Error: " + groqErr.message
             };
         }
 
+        // Save to Database
+        const newSession = new InterviewSession({
+            userId,
+            startTime: startTime || new Date(Date.now() - 300000), // Default 5 mins ago if missing
+            endTime: endTime || new Date(),
+            transcript,
+            behavioralLogs,
+            analysis: analysis || { score: 0, summary: "Error generating analysis", strengths: [], weaknesses: [], feedback: "Try again." }
+        });
+
+        await newSession.save();
+        console.log(">>> [DEBUG] Session saved to DB:", newSession._id);
+
         res.json({
             success: true,
-            analysis: analysis || { score: 0, summary: "Error generating analysis", strengths: [], weaknesses: [], feedback: "Try again." }
+            analysis: newSession.analysis,
+            sessionId: newSession._id
         });
 
     } catch (error) {

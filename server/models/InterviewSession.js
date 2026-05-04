@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const interviewSessionSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
   startTime: { type: Date, default: Date.now },
   endTime: { type: Date },
   transcript: [{
