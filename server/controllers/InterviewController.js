@@ -4,7 +4,7 @@ import { ChatGroq } from "@langchain/groq";
 import { MemorySaver } from "@langchain/langgraph";
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { HumanMessage } from "@langchain/core/messages";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 
 const sessionEvaluations = new Map();
 const sessionStates = new Map();
@@ -254,7 +254,7 @@ const saveAndEvaluate = tool(
   }
 );
 
-const systemMessage = `
+const defaultSystemMessage = `
 You are a Senior Technical Interviewer running a structured adaptive interview.
 
 INTERNAL CONDUCT:
@@ -299,6 +299,90 @@ STT LENIENCY:
 - The speech-to-text engine may distort technical terms. If the intended meaning is clear, interpret generously and do not penalize phonetic mistakes.
 `;
 
+const buildResumeSystemMessage = (resumeData) => {
+  const skills = [...(resumeData.skills || []), ...(resumeData.technicalSkills || [])].slice(0, 15).join(', ');
+  const softSkills = (resumeData.softSkills || []).slice(0, 5).join(', ');
+  const role = resumeData.currentRole || 'the candidate';
+  const experience = resumeData.totalExperience || 'unspecified years of';
+  const name = resumeData.name || 'the candidate';
+
+  const experienceBlock = (resumeData.workExperience || []).slice(0, 3).map(exp =>
+    `- ${exp.role} at ${exp.company} (${exp.duration}): ${(exp.highlights || []).slice(0, 2).join('; ')}`
+  ).join('\n');
+
+  const projectsBlock = (resumeData.projects || []).slice(0, 3).map(p =>
+    `- ${p.name}: ${p.description} (${(p.technologies || []).join(', ')})`
+  ).join('\n');
+
+  const certBlock = (resumeData.certifications || []).slice(0, 5).join(', ');
+
+  return `
+You are a Senior Technical Interviewer conducting a REAL, structured interview for ${name}, who is a ${role} with ${experience} of experience.
+
+CANDIDATE RESUME SUMMARY:
+${resumeData.summary || ''}
+
+TECHNICAL SKILLS: ${skills || 'not specified'}
+SOFT SKILLS: ${softSkills || 'not specified'}
+CERTIFICATIONS: ${certBlock || 'none listed'}
+
+WORK EXPERIENCE:
+${experienceBlock || 'Not provided'}
+
+PROJECTS:
+${projectsBlock || 'Not provided'}
+
+EDUCATION:
+${(resumeData.education || []).map(e => `${e.degree} from ${e.institution} (${e.year})`).join(', ') || 'Not provided'}
+
+=== INTERVIEW STRUCTURE — FOLLOW EXACTLY ===
+
+PHASE 1: BEHAVIORAL (first 3-4 questions)
+- Open with a warm but professional greeting, address the candidate by first name if available.
+- Do NOT ask for domain, role, or number of questions. You already have all context from the resume.
+- Start IMMEDIATELY with behavioral questions. Example openers:
+  * "Tell me about a challenging project you worked on recently."
+  * "Walk me through a time you had a technical disagreement with your team."
+  * "Describe a situation where you had to deliver under a tight deadline."
+- Use STAR method probing (Situation, Task, Action, Result).
+- Tie behavioral questions specifically to the candidate's stated experience and projects.
+
+PHASE 2: TECHNICAL (next 4-5 questions)
+- Transition naturally: "Great, now let's explore some technical concepts."
+- Questions MUST be based on the candidate's specific skill set: ${skills}.
+- Validate and probe claims made in their resume (e.g., if they listed React, ask about hooks, rendering, or state management).
+- If they mentioned a specific project, ask for implementation details or challenges.
+- Adjust difficulty based on answer quality (use the tool feedback).
+
+PHASE 3: HR ROUND (final 2-3 questions)
+- Transition: "Almost done — just a few culture-fit and career questions."
+- Topics: career goals, team collaboration, conflict resolution, growth mindset, expectations.
+- Keep it conversational, not interrogatory.
+
+=== CONDUCT RULES ===
+- Ask ONE question at a time. Never stack multiple questions.
+- After EVERY substantive candidate answer, call the save_and_evaluate tool ONCE before responding.
+- Never mention tool names, scoring, or internal state.
+- Give brief acknowledgment or encouragement before moving to the next question.
+- Keep all responses concise and natural — this is a spoken interview.
+- End with a professional summary when the candidate says the interview is done.
+
+DIFFICULTY GUIDE:
+- 1 = definitions and basic recall
+- 2 = practical implementation
+- 3 = debugging and tradeoffs
+- 4 = design under ambiguity
+- 5 = edge cases, leadership, architecture
+
+FOLLOW-UP RULES:
+- Ask a follow-up if the answer lacks evidence, examples, tradeoffs, or depth.
+- One focused follow-up only — never multiple at once.
+
+STT LENIENCY:
+- Speech-to-text may distort technical terms. Interpret generously based on context.
+`;
+};
+
 let llm;
 const getLLM = () => {
   if (!llm) {
@@ -311,22 +395,27 @@ const getLLM = () => {
   return llm;
 };
 
-let agent;
-const getAgent = () => {
-  if (!agent) {
+let agentsByMode = {};
+
+const getAgent = (systemPrompt) => {
+  // Use a hash/key of the systemPrompt to cache agents per mode
+  const isDefault = systemPrompt === defaultSystemMessage;
+  const key = isDefault ? '__default__' : '__resume__';
+
+  if (!agentsByMode[key]) {
     const checkpointer = new MemorySaver();
-    agent = createReactAgent({
+    agentsByMode[key] = createReactAgent({
       llm: getLLM(),
       tools: [saveAndEvaluate],
       checkpointSaver: checkpointer,
-      prompt: systemMessage,
+      prompt: systemPrompt,
     });
   }
-  return agent;
+  return agentsByMode[key];
 };
 
 export const processInterviewMessage = async (req, res) => {
-  const { message, threadId } = req.body;
+  const { message, threadId, resumeData } = req.body;
 
   if (!threadId) {
     return res.status(400).json({ success: false, error: "threadId is required" });
@@ -335,17 +424,21 @@ export const processInterviewMessage = async (req, res) => {
   const config = { configurable: { thread_id: threadId } };
   getSessionState(threadId);
 
+  // Choose system prompt based on whether resume data was provided
+  const hasResume = resumeData && typeof resumeData === 'object' && Object.keys(resumeData).length > 0;
+  const systemPrompt = hasResume ? buildResumeSystemMessage(resumeData) : defaultSystemMessage;
+  const activeAgent = getAgent(systemPrompt);
+
   try {
-    const activeAgent = getAgent();
     const input = {
-      messages: [new HumanMessage(message || "Begin interview setup.")],
+      messages: [new HumanMessage(message || "Begin interview.")],
     };
 
-    console.log(`[AGENT] Processing message for thread: ${threadId}`);
+    console.log(`[AGENT] Processing message for thread: ${threadId} | Mode: ${hasResume ? 'RESUME' : 'MANUAL'}`);
 
     const result = await activeAgent.invoke(input, config);
-    const messages = result.messages;
-    const lastMessage = messages[messages.length - 1];
+    const agentMessages = result.messages;
+    const lastMessage = agentMessages[agentMessages.length - 1];
     const evaluations = sessionEvaluations.get(threadId) || [];
     const sessionInsights = buildSessionInsights(threadId);
 

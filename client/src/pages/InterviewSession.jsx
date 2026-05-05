@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff,
@@ -17,6 +17,12 @@ import API_BASE_URL from '../config/api';
 const InterviewSession = () => {
   const { user } = useUser();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Resume data passed from InterviewSetup (optional)
+  const resumeData = location.state?.resumeData || null;
+  const hasResume = !!resumeData;
+
   const [sessionStartTime] = useState(new Date());
   const [hasStarted, setHasStarted] = useState(false);
 
@@ -74,13 +80,18 @@ const InterviewSession = () => {
   const [evaluations, setEvaluations] = useState([]);
   const [sessionInsights, setSessionInsights] = useState(null);
 
-  const handleAgentMessage = async (message) => {
-    if (!message || message.trim().length < 2) return; // Ignore very short/empty inputs
+  const handleAgentMessage = async (message, overrideResumeData) => {
+    if (!message || message.trim().length < 2) return;
     try {
+      const payload = {
+        message,
+        threadId,
+        resumeData: overrideResumeData !== undefined ? overrideResumeData : resumeData,
+      };
       const response = await fetch(`${API_BASE_URL}/api/interview/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, threadId })
+        body: JSON.stringify(payload)
       });
       const data = await response.json();
       if (data.success) {
@@ -88,6 +99,9 @@ const InterviewSession = () => {
         if (data.evaluations) setEvaluations(data.evaluations);
         if (data.sessionInsights) setSessionInsights(data.sessionInsights);
         speakText(data.response);
+      } else if (data.isRateLimit) {
+        setAgentText("I'm temporarily unavailable due to high demand. Please wait a moment and try again.");
+        speakText("I'm temporarily unavailable due to high demand. Please wait a moment and try again.");
       }
     } catch (err) {
       console.error("Agent Message Error:", err);
@@ -293,7 +307,13 @@ const InterviewSession = () => {
   // Initial Agent Greeting
   useEffect(() => {
     if (hasStarted) {
-      handleAgentMessage("Begin interview setup.");
+      if (hasResume) {
+        // Resume mode: greet and start immediately — agent knows the candidate already
+        handleAgentMessage("Hello, please begin the interview.");
+      } else {
+        // Manual mode: agent asks for domain and number of questions
+        handleAgentMessage("Begin interview setup.");
+      }
     }
   }, [hasStarted]);
 
@@ -616,7 +636,18 @@ const InterviewSession = () => {
             <span className="text-xs font-bold uppercase tracking-widest text-white/60">Live Interview</span>
           </div>
           <div className="h-4 w-[1px] bg-white/10" />
-          <span className="text-sm font-medium text-cyan-400">Senior Software Engineer Role</span>
+          {hasResume ? (
+            <div className="flex items-center gap-2">
+              <div className="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/20">
+                <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400">Resume Mode</span>
+              </div>
+              <span className="text-sm font-medium text-white/60">
+                {resumeData?.name || 'Candidate'} · {resumeData?.currentRole || 'Interview'}
+              </span>
+            </div>
+          ) : (
+            <span className="text-sm font-medium text-cyan-400">AI Interview Session</span>
+          )}
         </div>
         <div className="flex items-center gap-6">
           <div className="flex flex-col items-end">
@@ -771,7 +802,12 @@ const InterviewSession = () => {
 
       <footer className="h-28 bg-[#0a0a0a] border-t border-white/5 px-12 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <div className="flex flex-col"><span className="text-[9px] text-white/20 uppercase font-black tracking-[0.2em] mb-1">Session Target</span><span className="text-sm font-bold text-white/80">Senior React Engineer</span></div>
+          <div className="flex flex-col">
+            <span className="text-[9px] text-white/20 uppercase font-black tracking-[0.2em] mb-1">Session Target</span>
+            <span className="text-sm font-bold text-white/80">
+              {hasResume ? (resumeData?.currentRole || 'Personalized Interview') : 'AI-Guided Interview'}
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-5">
           <button onClick={() => setIsMuted(!isMuted)} className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 border", isMuted ? "bg-red-500 border-red-400 text-white shadow-lg shadow-red-500/20" : "bg-white/5 border-white/5 text-white/40 hover:text-white hover:border-white/20")}>{isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}</button>
