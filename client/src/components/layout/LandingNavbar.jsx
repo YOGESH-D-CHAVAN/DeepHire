@@ -23,12 +23,18 @@ const LandingNavbar = () => {
     )}>
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-10 h-10 bg-cyan-500 rounded-xl flex items-center justify-center transition-transform group-hover:rotate-12">
-            <Zap className="w-6 h-6 text-[#050505] fill-current" />
-          </div>
-          <span className="text-2xl font-black tracking-tighter text-white">DeepHire</span>
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="w-10 h-10 bg-cyan-500 rounded-xl flex items-center justify-center transition-transform group-hover:rotate-12">
+              <Zap className="w-6 h-6 text-[#050505] fill-current" />
+            </div>
+            <span className="text-2xl font-black tracking-tighter text-white">DeepHire</span>
+          </Link>
+          <div className="h-6 w-[1px] bg-white/10 hidden md:block" />
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 hidden lg:block">
+            Powered by TenAi's Consulting india
+          </span>
+        </div>
 
         {/* Desktop Navigation */}
         <div className="hidden md:flex items-center gap-8">
