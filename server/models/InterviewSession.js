@@ -25,7 +25,12 @@ const interviewSessionSchema = new mongoose.Schema({
       eyeContactScore: Number,
       engagementLevel: String,
       facialExpressionSummary: String,
-      bodyLanguageNotes: String
+      bodyLanguageNotes: String,
+      detailedMetrics: {
+        eyeTracking: { status: String, observation: String },
+        handMovements: { status: String, observation: String },
+        facialAnalysis: { dominant: String, observation: String }
+      }
     }
   }
 }, { timestamps: true });

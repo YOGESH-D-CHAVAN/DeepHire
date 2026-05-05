@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff,
@@ -8,11 +9,9 @@ import {
   Trophy, Target, ZapOff, CheckCircle2, X
 } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { Canvas } from '@react-three/fiber';
-import Avatar from '../components/interview/Avatar';
+import AIVisualizer from '../components/interview/AIVisualizer';
 import { FilesetResolver, FaceLandmarker, HandLandmarker } from '@mediapipe/tasks-vision';
 import { useUser } from '@clerk/clerk-react';
-import { useNavigate } from 'react-router-dom';
 
 const InterviewSession = () => {
   const { user } = useUser();
@@ -380,6 +379,8 @@ const InterviewSession = () => {
     }
   };
 
+  
+
   const handleEndInterview = async () => {
     setIsAnalyzing(true);
     
@@ -411,7 +412,8 @@ const InterviewSession = () => {
       });
       const data = await response.json();
       if (data.success) {
-        setAnalysisResult(data.analysis);
+        // Navigate to the dedicated analysis page with the data
+        navigate(`/analysis/${data.sessionId}`, { state: { analysis: data.analysis } });
       }
     } catch (err) {
       console.error("End Interview Error:", err);
@@ -572,7 +574,6 @@ const InterviewSession = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* Loading Overlay */}
       <AnimatePresence>
         {isAnalyzing && (
@@ -614,9 +615,7 @@ const InterviewSession = () => {
       <div className="flex-1 flex overflow-hidden p-8 gap-8 relative bg-[#050505]">
         <div className="flex-1 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 relative overflow-hidden shadow-2xl group transition-all duration-500 hover:border-cyan-500/20">
           <div className="absolute inset-0 z-10">
-            <Canvas shadows camera={{ position: [0, 0, 1.8], fov: 35 }}>
-              <Avatar expression={expression} isTalking={isInterviewerTalking} />
-            </Canvas>
+            <AIVisualizer isTalking={isInterviewerTalking} expression={expression} />
             
             {/* Agent Captions */}
             <AnimatePresence>
