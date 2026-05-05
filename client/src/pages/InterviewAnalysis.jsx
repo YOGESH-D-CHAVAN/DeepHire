@@ -11,17 +11,21 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recha
 import Navbar from '../components/layout/Navbar';
 import API_BASE_URL from '../config/api';
 
+import { useUser } from '@clerk/clerk-react';
+
 const InterviewAnalysis = () => {
   const { sessionId } = useParams();
+  const { user } = useUser();
   const [data, setData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchSessionData = async () => {
+      if (!user?.id) return;
       try {
         // we'll fetch all history and find the one. 
         // Realistically, we should add a specific endpoint for this.
-        const response = await fetch(`http://localhost:4000/api/interview/history/temp`); // This won't work perfectly without userId
+        const response = await fetch(`${API_BASE_URL}/api/interview/history/${user.id}`); // This won't work perfectly without userId
         // For now, I'll assume we can get it or we passed it in state.
         // Let's check if we have it in location state first.
       } catch (err) {}
