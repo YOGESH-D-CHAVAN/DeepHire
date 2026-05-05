@@ -26,10 +26,27 @@ const secondaryItems = [
 const Sidebar = () => {
   const { user } = useUser();
   const location = useLocation();
+  const [recentInterviews, setRecentInterviews] = React.useState([]);
+
+  React.useEffect(() => {
+    const fetchRecent = async () => {
+      if (!user?.id) return;
+      try {
+        const response = await fetch(`http://localhost:4000/api/interview/history/${user.id}`);
+        const data = await response.json();
+        if (data.success) {
+          setRecentInterviews(data.sessions.slice(0, 3));
+        }
+      } catch (err) {
+        console.error("Sidebar History Error:", err);
+      }
+    };
+    fetchRecent();
+  }, [user?.id]);
 
   return (
     <aside className="w-64 border-r border-white/10 bg-[#0a0a0a] flex flex-col h-screen fixed left-0 top-0 z-50">
-      <div className="p-6">
+      <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
         <Link to="/dashboard" className="flex items-center gap-2 mb-8 group">
           <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center transition-transform group-hover:rotate-12">
             <Zap className="w-5 h-5 text-[#0a0a0a] fill-current" />
@@ -39,7 +56,7 @@ const Sidebar = () => {
           </span>
         </Link>
 
-        <nav className="space-y-1">
+        <nav className="space-y-1 mb-8">
           {menuItems.map((item, index) => {
             const isActive = location.pathname === item.path;
             return (
@@ -62,6 +79,30 @@ const Sidebar = () => {
             );
           })}
         </nav>
+
+        {/* Recent Interviews Section */}
+        {recentInterviews.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="px-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-2">Recent Sessions</h3>
+            <div className="space-y-1">
+              {recentInterviews.map((session) => (
+                <Link 
+                  key={session._id}
+                  to="/history"
+                  className="flex items-center gap-3 px-4 py-2.5 rounded-xl hover:bg-white/5 transition-all group"
+                >
+                  <div className="w-2 h-2 rounded-full bg-cyan-500/40 group-hover:bg-cyan-400 transition-colors" />
+                  <div className="flex-1 overflow-hidden">
+                    <p className="text-[11px] font-bold text-white/60 truncate group-hover:text-white transition-colors">
+                      {new Date(session.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                    <p className="text-[9px] text-white/20 truncate">Score: {session.analysis?.score || 0}%</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-auto p-6 space-y-2">

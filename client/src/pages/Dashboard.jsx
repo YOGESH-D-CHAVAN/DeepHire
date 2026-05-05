@@ -22,7 +22,7 @@ const Dashboard = () => {
     const fetchStats = async () => {
       if (!user?.id) return;
       try {
-        const response = await fetch(`http://localhost:5000/api/interviews/stats/${user.id}`);
+        const response = await fetch(`http://localhost:4000/api/interview/stats/${user.id}`);
         const data = await response.json();
         if (data.success) {
           setStats(data.stats);

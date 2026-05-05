@@ -10,7 +10,7 @@ const Avatar = ({ isTalking }) => {
   const eyeRRef = useRef();
 
   useFrame((state) => {
-    const time = state.clock.getElapsedTime();
+    const time = state.clock.elapsedTime;
 
     // Subtle idle floating/rotation
     if (headRef.current) {

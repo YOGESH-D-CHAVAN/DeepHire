@@ -16,7 +16,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
 app.use('/api/analysis', analysisRoutes);
-app.use('/api/interviews', interviewRoutes);
+app.use('/api/interview', interviewRoutes);
 
 // Basic Health Check Route
 app.get('/', (req, res) => {

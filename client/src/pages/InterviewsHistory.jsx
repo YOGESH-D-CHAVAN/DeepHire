@@ -16,7 +16,7 @@ const InterviewsHistory = () => {
     const fetchHistory = async () => {
       if (!user?.id) return;
       try {
-        const response = await fetch(`http://localhost:5000/api/interviews/history/${user.id}`);
+        const response = await fetch(`http://localhost:4000/api/interview/history/${user.id}`);
         const data = await response.json();
         if (data.success) {
           setInterviews(data.sessions);
