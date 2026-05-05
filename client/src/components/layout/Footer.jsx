@@ -74,9 +74,15 @@ const Footer = () => {
 
       {/* Bottom Bar */}
       <div className="w-full pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
-        <p className="text-xs text-white/20">
-          © 2026 DeepHire Inc. All rights reserved.
-        </p>
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          <p className="text-xs text-white/20">
+            © 2026 DeepHire Inc. All rights reserved.
+          </p>
+          <div className="h-4 w-[1px] bg-white/10 hidden md:block" />
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500/40">
+            Powered by TenAi's Consulting india
+          </p>
+        </div>
         <div className="flex items-center gap-8">
           <a href="#" className="text-xs text-white/20 hover:text-white transition-colors">Privacy Policy</a>
           <a href="#" className="text-xs text-white/20 hover:text-white transition-colors">Terms of Service</a>

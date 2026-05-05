@@ -157,6 +157,9 @@ const Sidebar = () => {
           </div>
           <ChevronRight className="w-4 h-4 text-white/20 group-hover:text-cyan-400 transition-all" />
         </Link>
+        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/10 text-center mt-4">
+          Powered by TenAi's Consulting india
+        </p>
       </div>
     </aside>
   );

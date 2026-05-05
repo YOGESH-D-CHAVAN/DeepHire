@@ -1,21 +1,25 @@
 import React from 'react';
-import { Search, Bell, User, Settings, LogOut } from 'lucide-react';
+import { Bell, User, Settings, LogOut } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 const Navbar = () => {
   return (
     <nav className="h-16 border-b border-white/10 bg-[#0a0a0a]/80 backdrop-blur-md sticky top-0 z-50 px-6 flex items-center justify-between">
-      {/* Search Bar */}
-      <div className="flex-1 max-w-md">
-        <div className="relative group">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 group-focus-within:text-cyan-400 transition-colors" />
-          <input
-            type="text"
-            placeholder="Search interviews, candidates..."
-            className="w-full bg-white/5 border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all placeholder:text-white/20"
-          />
+      {/* Branding */}
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center">
+            <span className="text-black font-black text-xl">D</span>
+          </div>
+          <span className="text-xl font-black tracking-tighter text-white">Deep<span className="text-cyan-500">Hire</span></span>
         </div>
+        <div className="h-4 w-[1px] bg-white/10 mx-2" />
+        <span className="text-[10px] font-medium text-white/30 uppercase tracking-[0.2em] hidden md:block">
+          Powered by TenAi's Consulting india
+        </span>
       </div>
+
+      <div className="flex-1" />
 
       {/* Right Side Actions */}
       <div className="flex items-center gap-4">

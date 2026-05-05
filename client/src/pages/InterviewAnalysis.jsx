@@ -4,11 +4,10 @@ import { motion } from 'framer-motion';
 import { 
   Trophy, Target, ZapOff, CheckCircle2, 
   ChevronLeft, BarChart3, PieChart as PieChartIcon, 
-  User, MessageSquare, Download, Share2,
+  User, MessageSquare,
   Smile, Eye, Hand, Type
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import Sidebar from '../components/layout/Sidebar';
 import Navbar from '../components/layout/Navbar';
 
 const InterviewAnalysis = () => {
@@ -55,12 +54,11 @@ const InterviewAnalysis = () => {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white flex">
-      <Sidebar />
       
-      <main className="flex-1 ml-64 flex flex-col">
+      <main className="flex-1 flex flex-col">
         <Navbar />
         
-        <div className="p-8 pt-24 max-w-7xl mx-auto w-full space-y-8">
+        <div className="p-8 pt-24 max-w-[1440px] mx-auto w-full space-y-8 px-12">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
             <div className="space-y-2">
@@ -69,14 +67,6 @@ const InterviewAnalysis = () => {
               </Link>
               <h1 className="text-5xl font-black tracking-tighter">Performance <span className="text-cyan-500">Report</span></h1>
               <p className="text-white/40 font-medium">Session ID: {sessionId}</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button className="px-6 py-3 bg-white/5 border border-white/10 rounded-2xl font-bold text-sm hover:bg-white/10 transition-all flex items-center gap-2">
-                <Download className="w-4 h-4" /> Export PDF
-              </button>
-              <button className="px-6 py-3 bg-cyan-500 text-black rounded-2xl font-black text-sm hover:bg-cyan-400 transition-all flex items-center gap-2">
-                <Share2 className="w-4 h-4" /> Share Results
-              </button>
             </div>
           </div>
 

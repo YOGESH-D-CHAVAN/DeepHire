@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { useUser, useClerk, UserProfile } from '@clerk/clerk-react';
-import Sidebar from '../components/layout/Sidebar';
 import Navbar from '../components/layout/Navbar';
 import { LogOut, User, Shield, Bell, CreditCard, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -18,13 +17,12 @@ const AccountPage = () => {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white flex">
-      <Sidebar />
       
-      <main className="flex-1 ml-64 flex flex-col">
+      <main className="flex-1 flex flex-col">
         <Navbar />
         
         <div className="flex-1 p-8 pt-24 overflow-y-auto">
-          <div className="max-w-5xl mx-auto">
+          <div className="max-w-[1440px] mx-auto px-4 md:px-12">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
               <div>
                 <motion.div

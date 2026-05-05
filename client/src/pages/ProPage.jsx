@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import Sidebar from '../components/layout/Sidebar';
 import Navbar from '../components/layout/Navbar';
 import { Check, Zap, Star, Shield, Zap as ZapIcon, Loader2, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -35,9 +34,8 @@ const ProPage = () => {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white flex">
-      <Sidebar />
       
-      <main className="flex-1 ml-64 flex flex-col">
+      <main className="flex-1 flex flex-col">
         <Navbar />
         
         <div className="flex-1 p-8 pt-24 overflow-y-auto">
@@ -57,7 +55,7 @@ const ProPage = () => {
           </div>
 
           {/* Plans Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto mb-20">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-[1440px] mx-auto mb-20 px-8">
             {plans.map((plan, index) => (
               <motion.div
                 initial={{ opacity: 0, y: 30 }}

@@ -19,6 +19,7 @@ import LandingNavbar from '../components/layout/LandingNavbar';
 import Footer from '../components/layout/Footer';
 import { cn } from '../utils/cn';
 import { SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react';
+import dashboardPreview from '../assets/image.png';
 
 const LandingPage = () => {
   return (
@@ -110,9 +111,9 @@ const LandingPage = () => {
                   <div className="w-3 h-3 rounded-full bg-green-500/50" />
                 </div>
                 <img 
-                  src="/assets/hero.png" 
+                  src={dashboardPreview} 
                   alt="Dashboard Preview" 
-                  className="w-full h-auto opacity-80"
+                  className="w-full h-auto opacity-100"
                 />
               </div>
             </motion.div>
@@ -177,23 +178,7 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Trust Section */}
-      <section className="py-24 px-8 border-y border-white/5 bg-[#050505]">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-12">
-            <div className="max-w-xs text-center md:text-left">
-              <h3 className="text-xl font-bold mb-2">Loved by Industry Leaders</h3>
-              <p className="text-sm text-white/40 font-medium">Empowering the next generation of software engineers globally.</p>
-            </div>
-            <div className="flex flex-wrap justify-center items-center gap-12 md:gap-16 opacity-20 grayscale">
-               <span className="text-xl font-black tracking-tighter">ALPHABET</span>
-               <span className="text-xl font-black tracking-tighter">MICROSOFT</span>
-               <span className="text-xl font-black tracking-tighter">STRIPE</span>
-               <span className="text-xl font-black tracking-tighter">AIRBNB</span>
-            </div>
-          </div>
-        </div>
-      </section>
+
 
       {/* CTA Section */}
       <section className="py-32 px-8">
