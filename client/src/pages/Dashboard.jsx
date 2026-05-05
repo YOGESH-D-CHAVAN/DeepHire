@@ -7,6 +7,7 @@ import StatCard from '../components/dashboard/StatCard';
 import InterviewSetup from '../components/dashboard/InterviewSetup';
 import { Video, Award, Target, Clock, Loader2 } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
+import API_BASE_URL from '../config/api';
 
 const Dashboard = () => {
   const { user } = useUser();
