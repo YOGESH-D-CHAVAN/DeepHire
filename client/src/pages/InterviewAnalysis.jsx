@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import Navbar from '../components/layout/Navbar';
+import API_BASE_URL from '../config/api';
 
 const InterviewAnalysis = () => {
   const { sessionId } = useParams();
@@ -18,7 +19,6 @@ const InterviewAnalysis = () => {
   useEffect(() => {
     const fetchSessionData = async () => {
       try {
-        // Since we don't have a direct "get session by ID" endpoint yet, 
         // we'll fetch all history and find the one. 
         // Realistically, we should add a specific endpoint for this.
         const response = await fetch(`http://localhost:4000/api/interview/history/temp`); // This won't work perfectly without userId
