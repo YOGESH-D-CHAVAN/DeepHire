@@ -5,6 +5,7 @@ import Sidebar from '../components/layout/Sidebar';
 import Navbar from '../components/layout/Navbar';
 import { History, Calendar, Award, ArrowRight, Loader2, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import API_BASE_URL from '../config/api';
 
 const InterviewsHistory = () => {
   const { user } = useUser();
@@ -16,7 +17,7 @@ const InterviewsHistory = () => {
     const fetchHistory = async () => {
       if (!user?.id) return;
       try {
-        const response = await fetch(`http://localhost:4000/api/interview/history/${user.id}`);
+        const response = await fetch(`${API_BASE_URL}/api/interview/history/${user.id}`);
         const data = await response.json();
         if (data.success) {
           setInterviews(data.sessions);

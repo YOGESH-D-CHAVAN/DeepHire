@@ -12,6 +12,7 @@ import { cn } from '../utils/cn';
 import AIVisualizer from '../components/interview/AIVisualizer';
 import { FilesetResolver, FaceLandmarker, HandLandmarker } from '@mediapipe/tasks-vision';
 import { useUser } from '@clerk/clerk-react';
+import API_BASE_URL from '../config/api';
 
 const InterviewSession = () => {
   const { user } = useUser();
@@ -76,7 +77,7 @@ const InterviewSession = () => {
   const handleAgentMessage = async (message) => {
     if (!message || message.trim().length < 2) return; // Ignore very short/empty inputs
     try {
-      const response = await fetch('http://localhost:4000/api/interview/message', {
+      const response = await fetch(`${API_BASE_URL}/api/interview/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, threadId })
@@ -95,31 +96,45 @@ const InterviewSession = () => {
 
   const speakText = (text) => {
     if (!text) return;
-    window.speechSynthesis.cancel(); // Stop any current speech
+    
+    const synth = window.speechSynthesis;
+    synth.cancel(); // Stop any current speech
+    
     const utterance = new SpeechSynthesisUtterance(text);
     
     utterance.onstart = () => setIsInterviewerTalking(true);
     utterance.onend = () => setIsInterviewerTalking(false);
-    utterance.onerror = () => setIsInterviewerTalking(false);
+    utterance.onerror = (event) => {
+      console.error("[Speech API] Utterance Error:", event.error);
+      setIsInterviewerTalking(false);
+    };
     
+    const loadVoicesAndSpeak = () => {
+      const voices = synth.getVoices();
+      if (voices.length === 0) {
+        // Fallback: wait a bit and try again if no voices
+        setTimeout(loadVoicesAndSpeak, 100);
+        return;
+      }
 
-    // Choose a professional/natural voice
-    const voices = window.speechSynthesis.getVoices();
-    // Prioritize "Natural" or "Google" voices which sound much better
-    const preferredVoice = 
-      voices.find(v => v.name.includes('Natural')) || 
-      voices.find(v => v.name.includes('Google US English')) || 
-      voices.find(v => v.name.includes('English (United States)')) ||
-      voices[0];
-      
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
-      // Tweaking these makes standard voices sound less robotic
-      utterance.pitch = 1.05; 
-      utterance.rate = 0.95; // Slightly slower is often clearer and more human-like
-    }
+      // Prioritize "Natural" or "Google" voices
+      const preferredVoice = 
+        voices.find(v => v.name.includes('Natural') && v.lang.startsWith('en')) || 
+        voices.find(v => v.name.includes('Google US English')) || 
+        voices.find(v => v.name.includes('English (United States)')) ||
+        voices.find(v => v.lang.startsWith('en')) ||
+        voices[0];
+        
+      if (preferredVoice) {
+        utterance.voice = preferredVoice;
+        utterance.pitch = 1.05; 
+        utterance.rate = 0.95;
+      }
 
-    window.speechSynthesis.speak(utterance);
+      synth.speak(utterance);
+    };
+
+    loadVoicesAndSpeak();
   };
 
 
@@ -397,7 +412,7 @@ const InterviewSession = () => {
     setHasStarted(false);
 
     try {
-      const response = await fetch('http://localhost:4000/api/analysis/analyze-session', {
+      const response = await fetch(`${API_BASE_URL}/api/analysis/analyze-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

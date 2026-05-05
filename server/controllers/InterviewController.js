@@ -358,6 +358,16 @@ export const processInterviewMessage = async (req, res) => {
     });
   } catch (error) {
     console.error("Interview Agent Error:", error);
+    
+    // Provide a more helpful error for rate limits
+    if (error.message?.includes('rate_limit_exceeded')) {
+      return res.status(429).json({ 
+        success: false, 
+        error: "AI Interviewer is currently busy (Rate Limit Exceeded). Please check your Groq API usage or try again in a moment.",
+        isRateLimit: true
+      });
+    }
+
     res.status(500).json({ success: false, error: error.message });
   }
 };
