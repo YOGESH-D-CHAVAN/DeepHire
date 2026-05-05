@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff,
@@ -8,8 +9,7 @@ import {
   Trophy, Target, ZapOff, CheckCircle2, X
 } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { Canvas } from '@react-three/fiber';
-import Avatar from '../components/interview/Avatar';
+import AIVisualizer from '../components/interview/AIVisualizer';
 import { FilesetResolver, FaceLandmarker, HandLandmarker } from '@mediapipe/tasks-vision';
 import { useUser } from '@clerk/clerk-react';
 
@@ -376,6 +376,8 @@ const InterviewSession = () => {
     }
   };
 
+  const navigate = useNavigate();
+
   const handleEndInterview = async () => {
     setIsAnalyzing(true);
     try {
@@ -392,7 +394,8 @@ const InterviewSession = () => {
       });
       const data = await response.json();
       if (data.success) {
-        setAnalysisResult(data.analysis);
+        // Navigate to the dedicated analysis page with the data
+        navigate(`/analysis/${data.sessionId}`, { state: { analysis: data.analysis } });
       }
     } catch (err) {
       console.error("End Interview Error:", err);
@@ -439,113 +442,6 @@ const InterviewSession = () => {
       </AnimatePresence>
 
 
-      {/* Analysis Modal */}
-      <AnimatePresence>
-        {analysisResult && (
-          <motion.div 
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }}
-              className="bg-[#0a0a0a] border border-white/10 rounded-[3rem] w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl relative"
-            >
-              <button 
-                onClick={() => setAnalysisResult(null)}
-                className="absolute top-8 right-8 p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors z-10"
-              >
-                <X className="w-6 h-6 text-white/40" />
-              </button>
-
-              <div className="p-12 overflow-y-auto custom-scrollbar">
-                <div className="flex items-center gap-6 mb-12">
-                  <div className="w-24 h-24 rounded-3xl bg-cyan-500/20 flex items-center justify-center border border-cyan-500/20">
-                    <Trophy className="w-12 h-12 text-cyan-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-4xl font-black tracking-tight mb-2">Performance Analysis</h2>
-                    <div className="flex items-center gap-3">
-                      <div className="px-3 py-1 bg-cyan-500 rounded-full text-[10px] font-black uppercase text-[#0a0a0a]">DeepHire AI Score</div>
-                      <span className="text-3xl font-mono font-black text-cyan-400">{analysisResult.score}/100</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                  <div className="p-8 rounded-[2rem] bg-white/5 border border-white/5">
-                    <div className="flex items-center gap-3 mb-6">
-                      <Target className="w-5 h-5 text-green-400" />
-                      <h3 className="font-bold text-lg uppercase tracking-widest text-white/40 text-xs">Core Strengths</h3>
-                    </div>
-                    <ul className="space-y-4">
-                      {analysisResult.strengths.map((s, i) => (
-                        <li key={i} className="flex items-start gap-3 text-sm text-white/80 font-medium">
-                          <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                          {s}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="p-8 rounded-[2rem] bg-white/5 border border-white/5">
-                    <div className="flex items-center gap-3 mb-6">
-                      <ZapOff className="w-5 h-5 text-red-400" />
-                      <h3 className="font-bold text-lg uppercase tracking-widest text-white/40 text-xs">Areas to Improve</h3>
-                    </div>
-                    <ul className="space-y-4">
-                      {analysisResult.weaknesses.map((w, i) => (
-                        <li key={i} className="flex items-start gap-3 text-sm text-white/80 font-medium">
-                          <div className="w-4 h-4 rounded-full border border-red-500/30 flex items-center justify-center mt-0.5 flex-shrink-0">
-                            <div className="w-1.5 h-1.5 bg-red-500 rounded-full" />
-                          </div>
-                          {w}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Behavioral Analysis Section */}
-                {analysisResult.behavioralAnalysis && (
-                  <div className="mb-12">
-                    <h3 className="font-bold mb-6 uppercase tracking-widest text-white/40 text-xs flex items-center gap-2">
-                       <Zap className="w-4 h-4 text-cyan-400" /> Behavioral Insights
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
-                        <span className="text-[10px] uppercase font-bold text-white/20 mb-2">Eye Contact</span>
-                        <span className="text-2xl font-mono font-black text-cyan-400">{analysisResult.behavioralAnalysis.eyeContactScore}%</span>
-                        <p className="text-[10px] text-white/40 mt-1">{analysisResult.behavioralAnalysis.engagementLevel}</p>
-                      </div>
-                      <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
-                        <span className="text-[10px] uppercase font-bold text-white/20 mb-2">Overall Sentiment</span>
-                        <span className="text-xl font-bold text-violet-400">{analysisResult.behavioralAnalysis.sentiment}</span>
-                        <p className="text-[10px] text-white/40 mt-1">Tone & Expression</p>
-                      </div>
-                      <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
-                        <span className="text-[10px] uppercase font-bold text-white/20 mb-2">Body Language</span>
-                        <span className="text-[10px] font-medium text-white/80">{analysisResult.behavioralAnalysis.bodyLanguageNotes}</span>
-                      </div>
-                    </div>
-                    <div className="mt-6 p-6 rounded-2xl bg-white/5 border border-white/5">
-                      <p className="text-xs text-white/60 leading-relaxed font-medium">
-                        <span className="text-cyan-400 mr-2 font-black uppercase text-[10px]">Expression Summary:</span>
-                        {analysisResult.behavioralAnalysis.facialExpressionSummary}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="p-8 rounded-[2rem] bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10">
-                  <h3 className="font-bold mb-4 uppercase tracking-widest text-white/40 text-xs">AI Interviewer Feedback</h3>
-                  <p className="text-white/80 leading-relaxed font-medium italic">"{analysisResult.feedback}"</p>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Loading Overlay */}
       <AnimatePresence>
         {isAnalyzing && (
@@ -587,9 +483,7 @@ const InterviewSession = () => {
       <div className="flex-1 flex overflow-hidden p-8 gap-8 relative bg-[#050505]">
         <div className="flex-1 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 relative overflow-hidden shadow-2xl group transition-all duration-500 hover:border-cyan-500/20">
           <div className="absolute inset-0 z-10">
-            <Canvas shadows camera={{ position: [0, 0, 1.8], fov: 35 }}>
-              <Avatar expression={expression} isTalking={isInterviewerTalking} />
-            </Canvas>
+            <AIVisualizer isTalking={isInterviewerTalking} expression={expression} />
             
             {/* Agent Captions */}
             <AnimatePresence>

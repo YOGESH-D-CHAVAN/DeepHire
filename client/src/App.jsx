@@ -8,6 +8,7 @@ import InterviewsHistory from './pages/InterviewsHistory';
 import HelpCenter from './pages/HelpCenter';
 import ProPage from './pages/ProPage';
 import AccountPage from './pages/AccountPage';
+import InterviewAnalysis from './pages/InterviewAnalysis';
 import { SignedIn, SignedOut, RedirectToSignIn } from '@clerk/clerk-react';
 
 function App() {
@@ -92,6 +93,20 @@ function App() {
             <>
               <SignedIn>
                 <AccountPage />
+              </SignedIn>
+              <SignedOut>
+                <RedirectToSignIn />
+              </SignedOut>
+            </>
+          } 
+        />
+
+        <Route 
+          path="/analysis/:sessionId" 
+          element={
+            <>
+              <SignedIn>
+                <InterviewAnalysis />
               </SignedIn>
               <SignedOut>
                 <RedirectToSignIn />
