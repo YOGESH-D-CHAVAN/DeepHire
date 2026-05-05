@@ -11,8 +11,13 @@ import { cn } from '../utils/cn';
 import { Canvas } from '@react-three/fiber';
 import Avatar from '../components/interview/Avatar';
 import { FilesetResolver, FaceLandmarker, HandLandmarker } from '@mediapipe/tasks-vision';
+import { useUser } from '@clerk/clerk-react';
 
 const InterviewSession = () => {
+  const { user } = useUser();
+  const [sessionStartTime] = useState(new Date());
+  const [hasStarted, setHasStarted] = useState(false);
+
   // Suppress noisy MediaPipe/WASM logs
   useEffect(() => {
     const originalLog = console.log;
@@ -29,7 +34,8 @@ const InterviewSession = () => {
         msg.includes('landmark_projection') ||
         msg.includes('OpenGL') ||
         msg.includes('Graph successfully started') ||
-        msg.includes('NORM_RECT')
+        msg.includes('NORM_RECT') ||
+        msg.includes('no-speech')
       );
     };
 
@@ -49,8 +55,9 @@ const InterviewSession = () => {
     };
   }, []);
 
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const [isVideoOff, setIsVideoOff] = useState(false);
+
   const [timer, setTimer] = useState(0);
   const [isInterviewerTalking, setIsInterviewerTalking] = useState(false);
   
@@ -132,6 +139,16 @@ const InterviewSession = () => {
   const requestRef = useRef(null);
   const recognitionRef = useRef(null);
 
+  const isMutedRef = useRef(isMuted);
+  const isInterviewerTalkingRef = useRef(isInterviewerTalking);
+  const hasStartedRef = useRef(hasStarted);
+
+  // Keep refs in sync with state
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+  useEffect(() => { isInterviewerTalkingRef.current = isInterviewerTalking; }, [isInterviewerTalking]);
+  useEffect(() => { hasStartedRef.current = hasStarted; }, [hasStarted]);
+
+
   // Initialize MediaPipe
   useEffect(() => {
     const initMediaPipe = async () => {
@@ -150,19 +167,26 @@ const InterviewSession = () => {
 
   // Initialize Web Speech API
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'en-US';
+    if (!hasStarted) return;
 
-      recognitionRef.current.onstart = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.error("Speech Recognition API not supported in this browser.");
+      return;
+    }
+
+    const initRecognition = () => {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
         setIsRecognitionActive(true);
         console.log('[Speech API] Listening...');
       };
 
-      recognitionRef.current.onresult = (event) => {
+      recognition.onresult = (event) => {
         let interimTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
@@ -170,7 +194,7 @@ const InterviewSession = () => {
             setFullTranscript(prev => [...prev, { text, timestamp: new Date().toISOString() }]);
             console.log(`[Speech API] Final: ${text}`);
             handleAgentMessage(text);
-            setTranscript(''); // Clear the bubble after sending
+            setTranscript(''); 
           } else {
             interimTranscript += event.results[i][0].transcript;
           }
@@ -178,38 +202,69 @@ const InterviewSession = () => {
         if (interimTranscript) setTranscript(interimTranscript);
       };
 
-      recognitionRef.current.onend = () => {
+      recognition.onend = () => {
         setIsRecognitionActive(false);
-        console.log('[Speech API] Connection closed');
-        // Restart if not muted AND not manually stopped (e.g. by AI speaking)
-        if (!isMuted && !isInterviewerTalking) {
-          const timer = setTimeout(() => {
+        
+        // Auto-restart logic
+        if (!isMutedRef.current && !isInterviewerTalkingRef.current && hasStartedRef.current) {
+          // Use a slightly longer timeout if it was a quick closure to avoid tight loops
+          setTimeout(() => {
             try {
-              if (recognitionRef.current) recognitionRef.current.start();
-            } catch (err) {}
-          }, 300);
-          return () => clearTimeout(timer);
+              if (recognitionRef.current === recognition) {
+                recognition.start();
+              }
+            } catch (err) {
+              // Silently handle start errors (usually already started)
+            }
+          }, 1000); // 1s delay is more stable than 300ms
+        } else {
+          console.log('[Speech API] Connection closed');
         }
       };
 
-      recognitionRef.current.onerror = (event) => {
-        if (event.error === 'no-speech') return; // Silent timeout is handled by onend
+      recognition.onerror = (event) => {
+        if (event.error === 'no-speech') {
+          // Silent for no-speech, as it's a normal part of the cycle
+          return;
+        }
+        
         console.error('[Speech API] Error:', event.error);
+        if (event.error === 'not-allowed') {
+          setIsMuted(true); 
+        }
+        if (event.error === 'aborted') {
+          // Aborted is usually intentional (e.g. stop() called)
+          return;
+        }
       };
 
-      if (!isMuted && !isInterviewerTalking) {
-        try {
-          recognitionRef.current.start();
-        } catch (err) {}
+      return recognition;
+    };
+
+    recognitionRef.current = initRecognition();
+
+    // Start recognition if initial state allows
+    if (!isMuted && !isInterviewerTalking) {
+      try {
+        recognitionRef.current.start();
+      } catch (err) {
+        console.error("[Speech API] Initial start failed:", err);
       }
     }
+
     return () => {
       if (recognitionRef.current) {
         recognitionRef.current.onend = null;
-        recognitionRef.current.stop();
+        recognitionRef.current.onerror = null;
+        try {
+          recognitionRef.current.stop();
+        } catch (err) {}
+        recognitionRef.current = null;
       }
     };
-  }, [isMuted, isInterviewerTalking]);
+  }, [hasStarted, isMuted, isInterviewerTalking]);
+
+
 
   // Timer
   useEffect(() => {
@@ -219,13 +274,17 @@ const InterviewSession = () => {
 
   // Initial Agent Greeting
   useEffect(() => {
-    handleAgentMessage("Begin interview setup.");
-  }, []);
+    if (hasStarted) {
+      handleAgentMessage("Begin interview setup.");
+    }
+  }, [hasStarted]);
+
 
 
   // Camera Streaming Logic
   useEffect(() => {
     const enableCamera = async () => {
+      if (!hasStarted) return;
       try {
         if (!isVideoOff) {
           const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'user' }, audio: true });
@@ -236,7 +295,8 @@ const InterviewSession = () => {
     };
     enableCamera();
     return () => stopCamera();
-  }, [isVideoOff]);
+  }, [isVideoOff, hasStarted]);
+
 
   // Real-time Tracking Loop
   useEffect(() => {
@@ -322,7 +382,13 @@ const InterviewSession = () => {
       const response = await fetch('http://localhost:4000/api/analysis/analyze-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: fullTranscript, behavioralLogs })
+        body: JSON.stringify({ 
+          userId: user?.id,
+          transcript: fullTranscript, 
+          behavioralLogs,
+          startTime: sessionStartTime,
+          endTime: new Date()
+        })
       });
       const data = await response.json();
       if (data.success) {
@@ -338,6 +404,40 @@ const InterviewSession = () => {
   return (
     <div className="h-screen bg-[#050505] text-white flex flex-col overflow-hidden font-sans">
       <canvas ref={canvasRef} className="hidden" />
+
+      {/* Start Interview Overlay */}
+      <AnimatePresence>
+        {!hasStarted && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-2xl"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="max-w-md w-full p-12 bg-[#0a0a0a] border border-white/10 rounded-[3rem] text-center shadow-2xl"
+            >
+              <div className="w-20 h-20 bg-cyan-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-cyan-500/20">
+                <Bot className="w-10 h-10 text-cyan-400" />
+              </div>
+              <h2 className="text-3xl font-black mb-4 tracking-tight">Ready to Start?</h2>
+              <p className="text-white/40 mb-10 text-sm leading-relaxed">
+                Your camera and microphone will only be activated once you click the button below. 
+                Ensure you are in a quiet, well-lit environment.
+              </p>
+              <button 
+                onClick={() => setHasStarted(true)}
+                className="w-full py-5 rounded-2xl bg-cyan-500 text-[#0a0a0a] font-black text-sm uppercase tracking-widest hover:bg-cyan-400 transition-all shadow-[0_0_30px_rgba(6,182,212,0.3)] active:scale-95"
+              >
+                Start Mock Interview
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       {/* Analysis Modal */}
       <AnimatePresence>
@@ -404,6 +504,37 @@ const InterviewSession = () => {
                     </ul>
                   </div>
                 </div>
+
+                {/* Behavioral Analysis Section */}
+                {analysisResult.behavioralAnalysis && (
+                  <div className="mb-12">
+                    <h3 className="font-bold mb-6 uppercase tracking-widest text-white/40 text-xs flex items-center gap-2">
+                       <Zap className="w-4 h-4 text-cyan-400" /> Behavioral Insights
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
+                        <span className="text-[10px] uppercase font-bold text-white/20 mb-2">Eye Contact</span>
+                        <span className="text-2xl font-mono font-black text-cyan-400">{analysisResult.behavioralAnalysis.eyeContactScore}%</span>
+                        <p className="text-[10px] text-white/40 mt-1">{analysisResult.behavioralAnalysis.engagementLevel}</p>
+                      </div>
+                      <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
+                        <span className="text-[10px] uppercase font-bold text-white/20 mb-2">Overall Sentiment</span>
+                        <span className="text-xl font-bold text-violet-400">{analysisResult.behavioralAnalysis.sentiment}</span>
+                        <p className="text-[10px] text-white/40 mt-1">Tone & Expression</p>
+                      </div>
+                      <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
+                        <span className="text-[10px] uppercase font-bold text-white/20 mb-2">Body Language</span>
+                        <span className="text-[10px] font-medium text-white/80">{analysisResult.behavioralAnalysis.bodyLanguageNotes}</span>
+                      </div>
+                    </div>
+                    <div className="mt-6 p-6 rounded-2xl bg-white/5 border border-white/5">
+                      <p className="text-xs text-white/60 leading-relaxed font-medium">
+                        <span className="text-cyan-400 mr-2 font-black uppercase text-[10px]">Expression Summary:</span>
+                        {analysisResult.behavioralAnalysis.facialExpressionSummary}
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="p-8 rounded-[2rem] bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10">
                   <h3 className="font-bold mb-4 uppercase tracking-widest text-white/40 text-xs">AI Interviewer Feedback</h3>

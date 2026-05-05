@@ -18,6 +18,7 @@ import { FaGithub, FaTwitter, FaLinkedinIn } from 'react-icons/fa';
 import LandingNavbar from '../components/layout/LandingNavbar';
 import Footer from '../components/layout/Footer';
 import { cn } from '../utils/cn';
+import { SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react';
 
 const LandingPage = () => {
   return (
@@ -71,13 +72,24 @@ const LandingPage = () => {
               transition={{ duration: 0.6, delay: 0.3 }}
               className="flex flex-col sm:flex-row items-center gap-4 pt-4"
             >
-              <Link 
-                to="/dashboard" 
-                className="px-8 py-4 bg-white text-black font-black rounded-2xl flex items-center gap-2 hover:bg-white/90 transition-all group shadow-[0_0_40px_rgba(255,255,255,0.1)] active:scale-95"
-              >
-                Go to Dashboard
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
+              <SignedOut>
+                <Link 
+                  to="/sign-up" 
+                  className="px-8 py-4 bg-white text-black font-black rounded-2xl flex items-center gap-2 hover:bg-white/90 transition-all group shadow-[0_0_40px_rgba(255,255,255,0.1)] active:scale-95"
+                >
+                  Start for Free
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                <Link 
+                  to="/dashboard" 
+                  className="px-8 py-4 bg-white text-black font-black rounded-2xl flex items-center gap-2 hover:bg-white/90 transition-all group shadow-[0_0_40px_rgba(255,255,255,0.1)] active:scale-95"
+                >
+                  Go to Dashboard
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </SignedIn>
               <button className="px-8 py-4 bg-white/5 border border-white/10 text-white font-black rounded-2xl hover:bg-white/10 transition-all backdrop-blur-md active:scale-95">
                 Watch Demo
               </button>
@@ -204,9 +216,16 @@ const LandingPage = () => {
               transition={{ delay: 0.2 }}
               className="flex flex-col sm:flex-row items-center justify-center gap-6"
             >
-              <Link to="/dashboard" className="px-10 py-5 bg-white text-black font-black rounded-2xl hover:bg-white/90 transition-all shadow-[0_20px_50px_rgba(255,255,255,0.1)] active:scale-95">
-                Get Started for Free
-              </Link>
+              <SignedOut>
+                <Link to="/sign-up" className="px-10 py-5 bg-white text-black font-black rounded-2xl hover:bg-white/90 transition-all shadow-[0_20px_50px_rgba(255,255,255,0.1)] active:scale-95 text-center">
+                  Get Started for Free
+                </Link>
+              </SignedOut>
+              <SignedIn>
+                <Link to="/dashboard" className="px-10 py-5 bg-white text-black font-black rounded-2xl hover:bg-white/90 transition-all shadow-[0_20px_50px_rgba(255,255,255,0.1)] active:scale-95">
+                  Go to Dashboard
+                </Link>
+              </SignedIn>
               <button className="flex items-center gap-2 text-white font-bold hover:text-cyan-400 transition-colors group">
                 Schedule a Demo <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>

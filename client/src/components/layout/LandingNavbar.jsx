@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, Menu, X, ArrowRight } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react';
 
 const LandingNavbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -39,12 +40,20 @@ const LandingNavbar = () => {
 
         {/* CTA Buttons */}
         <div className="hidden md:flex items-center gap-4">
-          <Link to="/dashboard" className="text-sm font-bold text-white/60 hover:text-white transition-colors">
-            Sign In
-          </Link>
-          <Link to="/dashboard" className="px-6 py-2.5 bg-white text-black font-black rounded-xl text-sm hover:bg-white/90 transition-all active:scale-95">
-            Get Started
-          </Link>
+          <SignedOut>
+            <Link to="/sign-in" className="text-sm font-bold text-white/60 hover:text-white transition-colors">
+              Sign In
+            </Link>
+            <Link to="/sign-up" className="px-6 py-2.5 bg-white text-black font-black rounded-xl text-sm hover:bg-white/90 transition-all active:scale-95">
+              Get Started
+            </Link>
+          </SignedOut>
+          <SignedIn>
+            <Link to="/dashboard" className="text-sm font-bold text-white/60 hover:text-white transition-colors">
+              Dashboard
+            </Link>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
         </div>
 
         {/* Mobile Menu Button */}
@@ -64,9 +73,18 @@ const LandingNavbar = () => {
           <NavLink href="#pricing" onClick={() => setIsMobileMenuOpen(false)}>Pricing</NavLink>
           <NavLink href="#about" onClick={() => setIsMobileMenuOpen(false)}>About</NavLink>
           <hr className="border-white/5" />
-          <Link to="/dashboard" className="w-full py-3 bg-white text-black font-black rounded-xl text-center">
-            Get Started
-          </Link>
+          <SignedOut>
+            <SignInButton mode="modal">
+              <button className="w-full py-3 bg-white text-black font-black rounded-xl text-center">
+                Get Started
+              </button>
+            </SignInButton>
+          </SignedOut>
+          <SignedIn>
+            <Link to="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="w-full py-3 bg-white text-black font-black rounded-xl text-center">
+              Go to Dashboard
+            </Link>
+          </SignedIn>
         </div>
       )}
     </nav>

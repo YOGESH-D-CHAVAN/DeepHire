@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const interviewSessionSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
   startTime: { type: Date, default: Date.now },
   endTime: { type: Date },
   transcript: [{
@@ -18,7 +19,14 @@ const interviewSessionSchema = new mongoose.Schema({
     summary: String,
     strengths: [String],
     weaknesses: [String],
-    feedback: String
+    feedback: String,
+    behavioralAnalysis: {
+      sentiment: String,
+      eyeContactScore: Number,
+      engagementLevel: String,
+      facialExpressionSummary: String,
+      bodyLanguageNotes: String
+    }
   }
 }, { timestamps: true });
 

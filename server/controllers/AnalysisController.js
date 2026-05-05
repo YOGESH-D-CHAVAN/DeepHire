@@ -2,6 +2,7 @@ import * as faceapi from 'face-api.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import Groq from 'groq-sdk';
+import InterviewSession from '../models/InterviewSession.js';
 
 // Lazy load canvas to prevent server crash if build fails
 let canvas;
@@ -49,24 +50,51 @@ if (canvas) {
 export const analyzeSession = async (req, res) => {
     console.log(">>> [DEBUG] analyzeSession started");
     try {
-        const { transcript, behavioralLogs } = req.body;
+        const { userId, transcript, behavioralLogs, startTime, endTime } = req.body;
 
-        if (!transcript || !behavioralLogs) {
+        if (!userId || !transcript || !behavioralLogs) {
             console.log(">>> [DEBUG] Missing data");
             return res.status(400).json({ error: 'Missing session data' });
         }
 
-        console.log(`>>> [DEBUG] Data size - Transcript: ${transcript.length}, Logs: ${behavioralLogs.length}`);
+        console.log(`>>> [DEBUG] Data size - User: ${userId}, Transcript: ${transcript.length}, Logs: ${behavioralLogs.length}`);
 
         // Safety slice
-        const slicedTranscript = transcript.slice(-30);
-        const slicedLogs = behavioralLogs.slice(-30);
+        const slicedTranscript = transcript.slice(-50); // Increased context
+        const slicedLogs = behavioralLogs.slice(-50);
 
         const prompt = `
-            Evaluate this interview.
-            TRANSCRIPT: ${slicedTranscript.map(t => t.text).join(' ')}
-            BEHAVIOR: ${slicedLogs.map(l => l.expression).join(', ')}
-            Output JSON only: { "score": 85, "summary": "...", "strengths": [], "weaknesses": [], "feedback": "..." }
+            Evaluate this job interview session based on the transcript and behavioral data.
+            
+            TRANSCRIPT: 
+            ${slicedTranscript.map(t => `[${t.timestamp}] ${t.text}`).join('\n')}
+
+            BEHAVIORAL DATA (SAMPLED):
+            ${slicedLogs.map(l => `- Expression: ${l.expression}, Eye Contact: ${l.eyeStatus}, Hands: ${l.handStatus}`).join('\n')}
+
+            Your task:
+            1. Analyze the candidate's technical responses (from transcript).
+            2. Analyze non-verbal communication (from behavioral data).
+            3. Provide a combined score (0-100).
+            4. Identify 3 specific strengths and 3 specific areas for improvement.
+            5. Provide a summary and a direct piece of feedback.
+            6. Summarize behavioral metrics: Calculate approximate % of time for "Happy/Neutral" expressions, "Focused" eye contact, and "Hand movement" detected.
+
+            Output ONLY a JSON object with this exact structure:
+            {
+              "score": number,
+              "summary": "string",
+              "strengths": ["string", "string", "string"],
+              "weaknesses": ["string", "string", "string"],
+              "feedback": "string",
+              "behavioralAnalysis": {
+                "sentiment": "string (e.g. Confident, Nervous, Positive)",
+                "eyeContactScore": number (0-100),
+                "engagementLevel": "string",
+                "facialExpressionSummary": "string",
+                "bodyLanguageNotes": "string"
+              }
+            }
         `;
 
         let analysis;
@@ -74,10 +102,10 @@ export const analyzeSession = async (req, res) => {
             console.log(">>> [DEBUG] Calling Groq...");
             const chatCompletion = await getGroq().chat.completions.create({
                 messages: [
-                    { role: 'system', content: 'You are an interviewer. Output JSON only.' },
+                    { role: 'system', content: 'You are an expert technical recruiter and behavioral psychologist. Output JSON only.' },
                     { role: 'user', content: prompt }
                 ],
-                model: 'llama-3.1-8b-instant',
+                model: 'llama-3.3-70b-versatile', // Using the better model for analysis
             });
 
             let rawContent = chatCompletion.choices[0]?.message?.content;
@@ -89,19 +117,32 @@ export const analyzeSession = async (req, res) => {
             }
         } catch (groqErr) {
             console.error(">>> [DEBUG] Groq Call Failed:", groqErr.message);
-            // Fallback Analysis if Groq fails
             analysis = {
                 score: 70,
                 summary: "AI Analysis currently unavailable, but your session data was captured.",
                 strengths: ["Session completed successfully", "Video/Audio stream maintained"],
                 weaknesses: ["AI feedback engine timeout"],
-                feedback: "We were unable to reach our AI engine for a detailed report, but based on your activity, you maintained a steady pace. Error: " + groqErr.message
+                feedback: "We were unable to reach our AI engine for a detailed report. Error: " + groqErr.message
             };
         }
 
+        // Save to Database
+        const newSession = new InterviewSession({
+            userId,
+            startTime: startTime || new Date(Date.now() - 300000), // Default 5 mins ago if missing
+            endTime: endTime || new Date(),
+            transcript,
+            behavioralLogs,
+            analysis: analysis || { score: 0, summary: "Error generating analysis", strengths: [], weaknesses: [], feedback: "Try again." }
+        });
+
+        await newSession.save();
+        console.log(">>> [DEBUG] Session saved to DB:", newSession._id);
+
         res.json({
             success: true,
-            analysis: analysis || { score: 0, summary: "Error generating analysis", strengths: [], weaknesses: [], feedback: "Try again." }
+            analysis: newSession.analysis,
+            sessionId: newSession._id
         });
 
     } catch (error) {

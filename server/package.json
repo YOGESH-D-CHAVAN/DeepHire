@@ -16,7 +16,6 @@
     "@langchain/core": "^1.1.44",
     "@langchain/groq": "^1.2.0",
     "@langchain/langgraph": "^1.2.9",
-    "canvas": "^2.11.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
