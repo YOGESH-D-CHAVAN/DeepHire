@@ -46,7 +46,7 @@ const Sidebar = () => {
 
   return (
     <aside className="w-64 border-r border-white/10 bg-[#0a0a0a] flex flex-col h-screen fixed left-0 top-0 z-50">
-      <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+      <div className="p-6 overflow-y-auto flex-1 scrollbar-hide">
         <Link to="/dashboard" className="flex items-center gap-2 mb-8 group">
           <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center transition-transform group-hover:rotate-12">
             <Zap className="w-5 h-5 text-[#0a0a0a] fill-current" />

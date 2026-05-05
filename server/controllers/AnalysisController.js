@@ -88,11 +88,25 @@ export const analyzeSession = async (req, res) => {
               "weaknesses": ["string", "string", "string"],
               "feedback": "string",
               "behavioralAnalysis": {
-                "sentiment": "string (e.g. Confident, Nervous, Positive)",
-                "eyeContactScore": number (0-100),
+                "sentiment": "string",
+                "eyeContactScore": number,
                 "engagementLevel": "string",
                 "facialExpressionSummary": "string",
-                "bodyLanguageNotes": "string"
+                "bodyLanguageNotes": "string",
+                "detailedMetrics": {
+                  "eyeTracking": {
+                    "status": "string (e.g. Focused, Distracted)",
+                    "observation": "string (detailed note about eye movement)"
+                  },
+                  "handMovements": {
+                    "status": "string (e.g. Active, Still)",
+                    "observation": "string (detailed note about hand gestures)"
+                  },
+                  "facialAnalysis": {
+                    "dominant": "string",
+                    "observation": "string (detailed note about expression patterns)"
+                  }
+                }
               }
             }
         `;
