@@ -11,6 +11,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import API_BASE_URL from '../../config/api';
 import { useUser } from '@clerk/clerk-react';
 
 const menuItems = [
@@ -32,7 +33,7 @@ const Sidebar = () => {
     const fetchRecent = async () => {
       if (!user?.id) return;
       try {
-        const response = await fetch(`http://localhost:4000/api/interview/history/${user.id}`);
+        const response = await fetch(`${API_BASE_URL}/api/interview/history/${user.id}`);
         const data = await response.json();
         if (data.success) {
           setRecentInterviews(data.sessions.slice(0, 3));
