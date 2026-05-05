@@ -12,9 +12,11 @@ import { Canvas } from '@react-three/fiber';
 import Avatar from '../components/interview/Avatar';
 import { FilesetResolver, FaceLandmarker, HandLandmarker } from '@mediapipe/tasks-vision';
 import { useUser } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
 
 const InterviewSession = () => {
   const { user } = useUser();
+  const navigate = useNavigate();
   const [sessionStartTime] = useState(new Date());
   const [hasStarted, setHasStarted] = useState(false);
 
@@ -70,6 +72,7 @@ const InterviewSession = () => {
   const [isRecognitionActive, setIsRecognitionActive] = useState(false);
   const [agentText, setAgentText] = useState("");
   const [evaluations, setEvaluations] = useState([]);
+  const [sessionInsights, setSessionInsights] = useState(null);
 
   const handleAgentMessage = async (message) => {
     if (!message || message.trim().length < 2) return; // Ignore very short/empty inputs
@@ -83,6 +86,7 @@ const InterviewSession = () => {
       if (data.success) {
         setAgentText(data.response);
         if (data.evaluations) setEvaluations(data.evaluations);
+        if (data.sessionInsights) setSessionInsights(data.sessionInsights);
         speakText(data.response);
       }
     } catch (err) {
@@ -378,6 +382,19 @@ const InterviewSession = () => {
 
   const handleEndInterview = async () => {
     setIsAnalyzing(true);
+    
+    // Stop all active services
+    stopCamera();
+    stopAgentSpeech();
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (err) {
+        console.error("Error stopping recognition:", err);
+      }
+    }
+    setHasStarted(false);
+
     try {
       const response = await fetch('http://localhost:4000/api/analysis/analyze-session', {
         method: 'POST',
@@ -386,6 +403,8 @@ const InterviewSession = () => {
           userId: user?.id,
           transcript: fullTranscript, 
           behavioralLogs,
+          evaluations,
+          sessionInsights,
           startTime: sessionStartTime,
           endTime: new Date()
         })
@@ -407,7 +426,7 @@ const InterviewSession = () => {
 
       {/* Start Interview Overlay */}
       <AnimatePresence>
-        {!hasStarted && (
+        {!hasStarted && !analysisResult && !isAnalyzing && (
           <motion.div 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
@@ -536,10 +555,18 @@ const InterviewSession = () => {
                   </div>
                 )}
 
-                <div className="p-8 rounded-[2rem] bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10">
+                <div className="p-8 rounded-[2rem] bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 mb-12">
                   <h3 className="font-bold mb-4 uppercase tracking-widest text-white/40 text-xs">AI Interviewer Feedback</h3>
                   <p className="text-white/80 leading-relaxed font-medium italic">"{analysisResult.feedback}"</p>
                 </div>
+
+                <button 
+                  onClick={() => navigate('/dashboard')}
+                  className="w-full py-5 rounded-2xl bg-white text-black font-black text-sm uppercase tracking-widest hover:bg-white/90 transition-all active:scale-95 shadow-xl flex items-center justify-center gap-3"
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  Return to Dashboard
+                </button>
               </div>
             </motion.div>
           </motion.div>
@@ -674,6 +701,40 @@ const InterviewSession = () => {
                   <div className="mt-1 flex items-center justify-between pt-1">
                     <span className="text-[8px] uppercase font-bold text-white/20">Avg Score</span>
                     <span className="text-xs font-black text-white">{(evaluations.reduce((acc, v) => acc + v.score, 0) / evaluations.length).toFixed(1)}</span>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+            <AnimatePresence>
+              {sessionInsights && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex flex-col gap-3 p-3 bg-black/40 backdrop-blur-md rounded-2xl border border-white/5 w-56 shadow-xl"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-violet-300/70">Session Pattern</span>
+                    <span className="text-[10px] font-black text-white/80">L{sessionInsights.currentDifficulty}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-white/50">
+                    <span>Trend</span>
+                    <span className="font-bold text-white/80 uppercase">{sessionInsights.trendLabel}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-white/50">
+                    <span>Readiness</span>
+                    <span className="font-bold text-cyan-300 uppercase">{sessionInsights.readiness}</span>
+                  </div>
+                  <div className="pt-1 border-t border-white/5">
+                    <span className="text-[8px] uppercase font-bold text-white/20">Missing Most</span>
+                    <p className="text-[10px] text-white/75 leading-relaxed mt-1">
+                      {sessionInsights.missingSkills?.length ? sessionInsights.missingSkills.join(', ') : 'No repeated gaps detected yet'}
+                    </p>
+                  </div>
+                  <div className="pt-1 border-t border-white/5">
+                    <span className="text-[8px] uppercase font-bold text-white/20">Focus Areas</span>
+                    <p className="text-[10px] text-white/75 leading-relaxed mt-1">
+                      {sessionInsights.focusAreas?.length ? sessionInsights.focusAreas.join(', ') : 'Building signal'}
+                    </p>
                   </div>
                 </motion.div>
               )}

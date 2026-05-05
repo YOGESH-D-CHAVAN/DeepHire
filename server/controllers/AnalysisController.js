@@ -50,7 +50,7 @@ if (canvas) {
 export const analyzeSession = async (req, res) => {
     console.log(">>> [DEBUG] analyzeSession started");
     try {
-        const { userId, transcript, behavioralLogs, startTime, endTime } = req.body;
+        const { userId, transcript, behavioralLogs, startTime, endTime, evaluations = [], sessionInsights = null } = req.body;
 
         if (!userId || !transcript || !behavioralLogs) {
             console.log(">>> [DEBUG] Missing data");
@@ -60,8 +60,9 @@ export const analyzeSession = async (req, res) => {
         console.log(`>>> [DEBUG] Data size - User: ${userId}, Transcript: ${transcript.length}, Logs: ${behavioralLogs.length}`);
 
         // Safety slice
-        const slicedTranscript = transcript.slice(-50); // Increased context
+        const slicedTranscript = transcript.slice(-100);
         const slicedLogs = behavioralLogs.slice(-50);
+        const slicedEvaluations = evaluations.slice(-12);
 
         const prompt = `
             Evaluate this job interview session based on the transcript and behavioral data.
@@ -72,6 +73,12 @@ export const analyzeSession = async (req, res) => {
             BEHAVIORAL DATA (SAMPLED):
             ${slicedLogs.map(l => `- Expression: ${l.expression}, Eye Contact: ${l.eyeStatus}, Hands: ${l.handStatus}`).join('\n')}
 
+            LIVE QUESTION-BY-QUESTION EVALUATIONS:
+            ${slicedEvaluations.map((e, index) => `${index + 1}. Q: ${e.question}\nScore: ${e.score}/10\nSkills shown: ${(e.skillsDemonstrated || []).join(', ') || 'None'}\nMissing: ${(e.skillsMissing || []).join(', ') || 'None'}\nConceptual gaps: ${(e.conceptualGaps || []).join(', ') || 'None'}\nCommunication gaps: ${(e.communicationGaps || []).join(', ') || 'None'}\nFeedback: ${e.feedback}`).join('\n\n')}
+
+            SESSION INSIGHTS:
+            ${sessionInsights ? JSON.stringify(sessionInsights, null, 2) : 'No structured session insights provided.'}
+
             Your task:
             1. Analyze the candidate's technical responses (from transcript).
             2. Analyze non-verbal communication (from behavioral data).
@@ -79,6 +86,7 @@ export const analyzeSession = async (req, res) => {
             4. Identify 3 specific strengths and 3 specific areas for improvement.
             5. Provide a summary and a direct piece of feedback.
             6. Summarize behavioral metrics: Calculate approximate % of time for "Happy/Neutral" expressions, "Focused" eye contact, and "Hand movement" detected.
+            7. Use repeated patterns across the full session, not just the last answer.
 
             Output ONLY a JSON object with this exact structure:
             {
