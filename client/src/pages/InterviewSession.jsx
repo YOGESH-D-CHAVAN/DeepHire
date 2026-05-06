@@ -80,14 +80,21 @@ const InterviewSession = () => {
   const [evaluations, setEvaluations] = useState([]);
   const [sessionInsights, setSessionInsights] = useState(null);
 
+  const [hasSentResume, setHasSentResume] = useState(false);
+
   const handleAgentMessage = async (message, overrideResumeData) => {
     if (!message || message.trim().length < 2) return;
     try {
       const payload = {
         message,
         threadId,
-        resumeData: overrideResumeData !== undefined ? overrideResumeData : resumeData,
+        resumeData: !hasSentResume ? (overrideResumeData !== undefined ? overrideResumeData : resumeData) : undefined,
       };
+
+      if (payload.resumeData) {
+        setHasSentResume(true);
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/interview/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

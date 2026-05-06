@@ -1,4 +1,4 @@
-import InterviewSession from '../models/InterviewSession.js';
+ import InterviewSession from "../models/InterviewSession.js";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { ChatGroq } from "@langchain/groq";
 import { MemorySaver } from "@langchain/langgraph";
@@ -9,13 +9,19 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 const sessionEvaluations = new Map();
 const sessionStates = new Map();
 
-const uniqueList = (items = []) => [...new Set(items.filter(Boolean).map(item => item.trim()).filter(Boolean))];
+const uniqueList = (items = []) => [
+  ...new Set(
+    items
+      .filter(Boolean)
+      .map((item) => item.trim())
+      .filter(Boolean),
+  ),
+];
 
 const bumpCounts = (store, items = []) => {
   for (const item of uniqueList(items)) {
     store[item] = (store[item] || 0) + 1;
   }
-  
 };
 
 const average = (values = []) => {
@@ -56,14 +62,15 @@ const getSessionState = (threadId) => {
 
 const getRecentScores = (threadId, count = 2) => {
   const evaluations = sessionEvaluations.get(threadId) || [];
-  return evaluations.slice(-count).map(item => item.score);
+  return evaluations.slice(-count).map((item) => item.score);
 };
 
 const getNextDifficulty = (threadId, currentDifficulty) => {
   const recentAverage = average(getRecentScores(threadId, 2));
 
   if (recentAverage >= 8) return Math.min(5, currentDifficulty + 1);
-  if (recentAverage > 0 && recentAverage < 5) return Math.max(1, currentDifficulty - 1);
+  if (recentAverage > 0 && recentAverage < 5)
+    return Math.max(1, currentDifficulty - 1);
   return currentDifficulty;
 };
 
@@ -95,12 +102,16 @@ const buildSessionInsights = (threadId) => {
     }))
     .sort((a, b) => b.averageScore - a.averageScore);
 
-  const averageScore = Number(average(evaluations.map(item => item.score)).toFixed(1));
+  const averageScore = Number(
+    average(evaluations.map((item) => item.score)).toFixed(1),
+  );
   const recentScores = getRecentScores(threadId, 3);
   const trendLabel =
-    recentScores.length >= 2 && recentScores[recentScores.length - 1] > recentScores[0]
+    recentScores.length >= 2 &&
+    recentScores[recentScores.length - 1] > recentScores[0]
       ? "improving"
-      : recentScores.length >= 2 && recentScores[recentScores.length - 1] < recentScores[0]
+      : recentScores.length >= 2 &&
+          recentScores[recentScores.length - 1] < recentScores[0]
         ? "slipping"
         : "steady";
 
@@ -117,48 +128,18 @@ const buildSessionInsights = (threadId) => {
     conceptualGaps: topEntries(state.conceptualGaps, 5),
     communicationGaps: topEntries(state.communicationGaps, 5),
     observedSkills: topEntries(state.skillsObserved, 5),
-    queuedFollowUps: state.followUpQueue.slice(0, 2).map(item => item.question),
+    queuedFollowUps: state.followUpQueue
+      .slice(0, 2)
+      .map((item) => item.question),
     confidenceBySkill,
   };
 };
 
 const saveAndEvaluate = tool(
-  async ({
-    question,
-    answer,
-    feedback,
-    score,
-    aiLikelihood,
-    difficultyAssigned,
-    candidateReadiness,
-    followUpNeeded,
-    followUpQuestion,
-    followUpReason,
-    targetRole,
-    skillsDemonstrated,
-    skillsMissing,
-    conceptualGaps,
-    communicationGaps,
-    strongSignals,
-    weakSignals,
-    contradictionFlag,
-    evidenceLevel,
-  }, config) => {
-    const threadId = config.configurable.thread_id;
-    const state = getSessionState(threadId);
-    const normalizedAnswer = answer?.trim() || "";
-
-    if (!normalizedAnswer) {
-      return JSON.stringify({
-        status: "skipped",
-        reason: "No candidate answer was provided, so evaluation was not recorded.",
-        insights: buildSessionInsights(threadId),
-      });
-    }
-
-    const evaluation = {
+  async (
+    {
       question,
-      answer: normalizedAnswer,
+      answer,
       feedback,
       score,
       aiLikelihood,
@@ -168,74 +149,128 @@ const saveAndEvaluate = tool(
       followUpQuestion,
       followUpReason,
       targetRole,
-      skillsDemonstrated: uniqueList(skillsDemonstrated),
-      skillsMissing: uniqueList(skillsMissing),
-      conceptualGaps: uniqueList(conceptualGaps),
-      communicationGaps: uniqueList(communicationGaps),
-      strongSignals: uniqueList(strongSignals),
-      weakSignals: uniqueList(weakSignals),
-      contradictionFlag: contradictionFlag?.trim() || "",
+      skillsDemonstrated,
+      skillsMissing,
+      conceptualGaps,
+      communicationGaps,
+      strongSignals,
+      weakSignals,
+      contradictionFlag,
       evidenceLevel,
-      timestamp: new Date().toISOString(),
-    };
+    },
+    config,
+  ) => {
+    try {
+      console.log(
+        `[TOOL] save_and_evaluate called for thread: ${config.configurable.thread_id}`,
+      );
+      const threadId = config.configurable.thread_id;
+      const state = getSessionState(threadId);
+      const normalizedAnswer = answer?.trim() || "";
 
-    if (!sessionEvaluations.has(threadId)) {
-      sessionEvaluations.set(threadId, []);
-    }
-    sessionEvaluations.get(threadId).push(evaluation);
+      if (!normalizedAnswer) {
+        return JSON.stringify({
+          status: "skipped",
+          reason: "No answer provided.",
+        });
+      }
 
-    if (targetRole?.trim()) {
-      state.targetRole = targetRole.trim();
-    }
+      const evaluation = {
+        question,
+        answer: normalizedAnswer,
+        feedback,
+        score,
+        aiLikelihood,
+        difficultyAssigned,
+        candidateReadiness,
+        followUpNeeded,
+        followUpQuestion,
+        followUpReason,
+        targetRole,
+        skillsDemonstrated: uniqueList(skillsDemonstrated),
+        skillsMissing: uniqueList(skillsMissing),
+        conceptualGaps: uniqueList(conceptualGaps),
+        communicationGaps: uniqueList(communicationGaps),
+        strongSignals: uniqueList(strongSignals),
+        weakSignals: uniqueList(weakSignals),
+        contradictionFlag: contradictionFlag?.trim() || "",
+        evidenceLevel,
+        timestamp: new Date().toISOString(),
+      };
 
-    state.totalAnswers += 1;
-    state.readiness = candidateReadiness;
+      if (!sessionEvaluations.has(threadId)) {
+        sessionEvaluations.set(threadId, []);
+      }
+      sessionEvaluations.get(threadId).push(evaluation);
 
-    bumpCounts(state.skillsObserved, evaluation.skillsDemonstrated);
-    bumpCounts(state.missingSkills, evaluation.skillsMissing);
-    bumpCounts(state.conceptualGaps, evaluation.conceptualGaps);
-    bumpCounts(state.communicationGaps, evaluation.communicationGaps);
-    bumpCounts(state.strongSignals, evaluation.strongSignals);
-    bumpCounts(state.weakSignals, evaluation.weakSignals);
-    upsertConfidenceBySkill(state.confidenceBySkill, evaluation.skillsDemonstrated, score);
+      if (targetRole?.trim()) {
+        state.targetRole = targetRole.trim();
+      }
 
-    if (evaluation.contradictionFlag) {
-      state.contradictions.push({
-        detail: evaluation.contradictionFlag,
-        timestamp: evaluation.timestamp,
+      state.totalAnswers += 1;
+      state.readiness = candidateReadiness;
+
+      bumpCounts(state.skillsObserved, evaluation.skillsDemonstrated);
+      bumpCounts(state.missingSkills, evaluation.skillsMissing);
+      bumpCounts(state.conceptualGaps, evaluation.conceptualGaps);
+      bumpCounts(state.communicationGaps, evaluation.communicationGaps);
+      bumpCounts(state.strongSignals, evaluation.strongSignals);
+      bumpCounts(state.weakSignals, evaluation.weakSignals);
+      upsertConfidenceBySkill(
+        state.confidenceBySkill,
+        evaluation.skillsDemonstrated,
+        score,
+      );
+
+      if (evaluation.contradictionFlag) {
+        state.contradictions.push({
+          detail: evaluation.contradictionFlag,
+          timestamp: evaluation.timestamp,
+        });
+      }
+
+      if (evaluation.followUpNeeded && evaluation.followUpQuestion) {
+        state.followUpQueue.push({
+          question: evaluation.followUpQuestion,
+          reason: evaluation.followUpReason || "Clarify a missing concept",
+          sourceQuestion: question,
+          timestamp: evaluation.timestamp,
+        });
+      }
+
+      state.currentDifficulty = getNextDifficulty(threadId, difficultyAssigned);
+      state.difficultyTrend.push(state.currentDifficulty);
+
+      console.log(`\n[AGENT LOG]: Evaluated "${question}"`);
+      console.log(
+        `Score: ${score}, Difficulty: ${difficultyAssigned}, Next: ${state.currentDifficulty}`,
+      );
+
+      // RETURN MINIMAL DATA TO SAVE TOKENS IN HISTORY
+      return JSON.stringify({
+        status: "saved",
+        score: score,
+        nextDifficulty: state.currentDifficulty,
+        followUpNeeded: followUpNeeded,
+      });
+    } catch (error) {
+      console.error("[TOOL ERROR] save_and_evaluate:", error);
+      return JSON.stringify({
+        status: "error",
+        error: error.message,
       });
     }
-
-    if (evaluation.followUpNeeded && evaluation.followUpQuestion) {
-      state.followUpQueue.push({
-        question: evaluation.followUpQuestion,
-        reason: evaluation.followUpReason || "Clarify a missing concept",
-        sourceQuestion: question,
-        timestamp: evaluation.timestamp,
-      });
-    }
-
-    state.currentDifficulty = getNextDifficulty(threadId, difficultyAssigned);
-    state.difficultyTrend.push(state.currentDifficulty);
-
-    console.log(`\n[AGENT LOG]: Evaluated "${question}"`);
-    console.log(`Score: ${score}, Difficulty: ${difficultyAssigned}, Next: ${state.currentDifficulty}`);
-
-    return JSON.stringify({
-      status: "saved",
-      nextDifficulty: state.currentDifficulty,
-      insights: buildSessionInsights(threadId),
-    });
   },
   {
     name: "save_and_evaluate",
-    description: "Evaluate every candidate answer, update session state, and keep track of skills demonstrated, skills missing, and follow-up needs.",
+    description:
+      "Evaluate every candidate answer, update session state, and keep track of skills demonstrated, skills missing, and follow-up needs.",
     schema: z.object({
       question: z.string(),
       answer: z.string(),
       feedback: z.string(),
       score: z.number().min(0).max(10),
-      aiLikelihood: z.number().min(1).max(10),
+      aiLikelihood: z.number().min(0).max(10),
       difficultyAssigned: z.number().min(1).max(5),
       candidateReadiness: z.enum(["low", "medium", "high"]),
       followUpNeeded: z.boolean(),
@@ -251,7 +286,7 @@ const saveAndEvaluate = tool(
       contradictionFlag: z.string().optional().default(""),
       evidenceLevel: z.enum(["low", "medium", "high"]).default("medium"),
     }),
-  }
+  },
 );
 
 const defaultSystemMessage = `
@@ -265,6 +300,7 @@ INTERNAL CONDUCT:
 STATEFUL INTERVIEW RULES:
 - You must build the interview progressively across the full session, not only from the latest turn.
 - After every substantive candidate answer, call the evaluation tool exactly once before replying.
+- CRITICAL: When calling tools, ensure the JSON is valid and contains NO duplicate keys.
 - Do not call the evaluation tool when you are asking the first question, clarifying setup, or speaking before the candidate has answered.
 - Use the tool output to track:
   - strengths shown repeatedly
@@ -300,40 +336,53 @@ STT LENIENCY:
 `;
 
 const buildResumeSystemMessage = (resumeData) => {
-  const skills = [...(resumeData.skills || []), ...(resumeData.technicalSkills || [])].slice(0, 15).join(', ');
-  const softSkills = (resumeData.softSkills || []).slice(0, 5).join(', ');
-  const role = resumeData.currentRole || 'the candidate';
-  const experience = resumeData.totalExperience || 'unspecified years of';
-  const name = resumeData.name || 'the candidate';
+  const skills = [
+    ...(resumeData.skills || []),
+    ...(resumeData.technicalSkills || []),
+  ]
+    .slice(0, 15)
+    .join(", ");
+  const softSkills = (resumeData.softSkills || []).slice(0, 5).join(", ");
+  const role = resumeData.currentRole || "the candidate";
+  const experience = resumeData.totalExperience || "unspecified years of";
+  const name = resumeData.name || "the candidate";
 
-  const experienceBlock = (resumeData.workExperience || []).slice(0, 3).map(exp =>
-    `- ${exp.role} at ${exp.company} (${exp.duration}): ${(exp.highlights || []).slice(0, 2).join('; ')}`
-  ).join('\n');
+  const experienceBlock = (resumeData.workExperience || [])
+    .slice(0, 3)
+    .map(
+      (exp) =>
+        `- ${exp.role} at ${exp.company} (${exp.duration}): ${(exp.highlights || []).slice(0, 2).join("; ")}`,
+    )
+    .join("\n");
 
-  const projectsBlock = (resumeData.projects || []).slice(0, 3).map(p =>
-    `- ${p.name}: ${p.description} (${(p.technologies || []).join(', ')})`
-  ).join('\n');
+  const projectsBlock = (resumeData.projects || [])
+    .slice(0, 3)
+    .map(
+      (p) =>
+        `- ${p.name}: ${p.description} (${(p.technologies || []).join(", ")})`,
+    )
+    .join("\n");
 
-  const certBlock = (resumeData.certifications || []).slice(0, 5).join(', ');
+  const certBlock = (resumeData.certifications || []).slice(0, 5).join(", ");
 
   return `
 You are a Senior Technical Interviewer conducting a REAL, structured interview for ${name}, who is a ${role} with ${experience} of experience.
 
 CANDIDATE RESUME SUMMARY:
-${resumeData.summary || ''}
+${resumeData.summary || ""}
 
-TECHNICAL SKILLS: ${skills || 'not specified'}
-SOFT SKILLS: ${softSkills || 'not specified'}
-CERTIFICATIONS: ${certBlock || 'none listed'}
+TECHNICAL SKILLS: ${skills || "not specified"}
+SOFT SKILLS: ${softSkills || "not specified"}
+CERTIFICATIONS: ${certBlock || "none listed"}
 
 WORK EXPERIENCE:
-${experienceBlock || 'Not provided'}
+${experienceBlock || "Not provided"}
 
 PROJECTS:
-${projectsBlock || 'Not provided'}
+${projectsBlock || "Not provided"}
 
 EDUCATION:
-${(resumeData.education || []).map(e => `${e.degree} from ${e.institution} (${e.year})`).join(', ') || 'Not provided'}
+${(resumeData.education || []).map((e) => `${e.degree} from ${e.institution} (${e.year})`).join(", ") || "Not provided"}
 
 === INTERVIEW STRUCTURE — FOLLOW EXACTLY ===
 
@@ -362,6 +411,7 @@ PHASE 3: HR ROUND (final 2-3 questions)
 === CONDUCT RULES ===
 - Ask ONE question at a time. Never stack multiple questions.
 - After EVERY substantive candidate answer, call the save_and_evaluate tool ONCE before responding.
+- CRITICAL: Ensure the tool call JSON is perfectly valid and contains NO duplicate keys.
 - Never mention tool names, scoring, or internal state.
 - Give brief acknowledgment or encouragement before moving to the next question.
 - Keep all responses concise and natural — this is a spoken interview.
@@ -387,7 +437,7 @@ let llm;
 const getLLM = () => {
   if (!llm) {
     llm = new ChatGroq({
-      model: "llama-3.3-70b-versatile",
+      model: "llama-3.3-70b-versatile", // More powerful model for complex reasoning
       temperature: 0.35,
       apiKey: process.env.GROQ_API_KEY,
     });
@@ -395,80 +445,139 @@ const getLLM = () => {
   return llm;
 };
 
-let agentsByMode = {};
+// Per-thread resume data store — populated on the first message, read by the agent.
+const sessionResumeData = new Map(); // threadId → resumeData | null
 
-const getAgent = (systemPrompt) => {
-  // Use a hash/key of the systemPrompt to cache agents per mode
-  const isDefault = systemPrompt === defaultSystemMessage;
-  const key = isDefault ? '__default__' : '__resume__';
+// Track which threads have already had their SystemMessage injected.
+const initializedThreads = new Set();
 
-  if (!agentsByMode[key]) {
+// Single agent instance — no static prompt baked in.
+let agent;
+const getAgent = () => {
+  if (!agent) {
     const checkpointer = new MemorySaver();
-    agentsByMode[key] = createReactAgent({
+    agent = createReactAgent({
       llm: getLLM(),
       tools: [saveAndEvaluate],
       checkpointSaver: checkpointer,
-      prompt: systemPrompt,
     });
   }
-  return agentsByMode[key];
+  return agent;
 };
 
 export const processInterviewMessage = async (req, res) => {
   const { message, threadId, resumeData } = req.body;
 
   if (!threadId) {
-    return res.status(400).json({ success: false, error: "threadId is required" });
+    return res
+      .status(400)
+      .json({ success: false, error: "threadId is required" });
   }
 
   const config = { configurable: { thread_id: threadId } };
   getSessionState(threadId);
 
-  // Choose system prompt based on whether resume data was provided
-  const hasResume = resumeData && typeof resumeData === 'object' && Object.keys(resumeData).length > 0;
-  const systemPrompt = hasResume ? buildResumeSystemMessage(resumeData) : defaultSystemMessage;
-  const activeAgent = getAgent(systemPrompt);
+  // Store resumeData for this thread on first message
+  const hasResume =
+    resumeData &&
+    typeof resumeData === "object" &&
+    Object.keys(resumeData).length > 0;
+  if (!sessionResumeData.has(threadId)) {
+    sessionResumeData.set(threadId, hasResume ? resumeData : null);
+  }
+
+  const activeAgent = getAgent();
+  if (!process.env.GROQ_API_KEY) {
+    console.error(
+      "[ERROR] GROQ_API_KEY is missing from environment variables!",
+    );
+  }
 
   try {
-    const input = {
-      messages: [new HumanMessage(message || "Begin interview.")],
-    };
+    // Inject system message on the first turn only
+    let inputMessages;
+    if (!initializedThreads.has(threadId)) {
+      initializedThreads.add(threadId);
+      const storedResume = sessionResumeData.get(threadId);
+      const systemText = storedResume
+        ? buildResumeSystemMessage(storedResume)
+        : defaultSystemMessage;
+      inputMessages = [
+        new SystemMessage(systemText),
+        new HumanMessage(message || "Begin interview."),
+      ];
+      console.log(
+        `[AGENT] Thread ${threadId} initialized | Mode: ${storedResume ? "RESUME" : "MANUAL"}`,
+      );
+    } else {
+      inputMessages = [new HumanMessage(message || "Continue.")];
+    }
 
-    console.log(`[AGENT] Processing message for thread: ${threadId} | Mode: ${hasResume ? 'RESUME' : 'MANUAL'}`);
+    const input = { messages: inputMessages };
+    console.log(
+      `[AGENT] Processing message for thread: ${threadId} | Messages: ${inputMessages.length}`,
+    );
 
     const result = await activeAgent.invoke(input, config);
-    const agentMessages = result.messages;
+    console.log(`[AGENT] Invoke successful for thread: ${threadId}`);
+    const agentMessages = result.messages || [];
+    if (agentMessages.length === 0) {
+      throw new Error("AI Agent failed to generate a response message.");
+    }
     const lastMessage = agentMessages[agentMessages.length - 1];
+
+    // Safely extract text for TTS
+    const rawContent = lastMessage.content;
+    const responseText =
+      typeof rawContent === "string"
+        ? rawContent
+        : Array.isArray(rawContent)
+          ? rawContent
+              .filter((b) => b?.type === "text")
+              .map((b) => b.text)
+              .join(" ")
+              .trim()
+          : String(rawContent || "");
+
+    if (!responseText) {
+      throw new Error("AI Agent generated an empty response.");
+    }
+
     const evaluations = sessionEvaluations.get(threadId) || [];
     const sessionInsights = buildSessionInsights(threadId);
 
     res.status(200).json({
       success: true,
-      response: lastMessage.content,
+      response: responseText,
       evaluations,
       latestEvaluation: evaluations[evaluations.length - 1] || null,
       sessionInsights,
     });
   } catch (error) {
-    console.error("Interview Agent Error:", error);
-    
+    console.error("Interview Agent Error Stack:", error.stack);
+
     // Provide a more helpful error for rate limits
-    if (error.message?.includes('rate_limit_exceeded')) {
-      return res.status(429).json({ 
-        success: false, 
-        error: "AI Interviewer is currently busy (Rate Limit Exceeded). Please check your Groq API usage or try again in a moment.",
-        isRateLimit: true
+    if (error.message?.includes("rate_limit_exceeded")) {
+      return res.status(429).json({
+        success: false,
+        error:
+          "AI Interviewer is currently busy (Rate Limit Exceeded). Please check your Groq API usage or try again in a moment.",
+        isRateLimit: true,
       });
     }
 
-    res.status(500).json({ success: false, error: error.message });
+    res
+      .status(500)
+      .json({ success: false, error: error.message, stack: error.stack });
   }
 };
 
 export const getInterviewHistory = async (req, res) => {
   try {
     const { userId } = req.params;
-    const sessions = await InterviewSession.find({ userId }).sort({ createdAt: -1 });
+    const sessions = await InterviewSession.find({ userId }).sort({
+      createdAt: -1,
+    });
     res.json({ success: true, sessions });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -486,14 +595,16 @@ export const getDashboardStats = async (req, res) => {
         stats: {
           totalInterviews: 0,
           avgConfidence: 0,
-          goalsMet: '0/0',
-          practiceTime: '0h'
-        }
+          goalsMet: "0/0",
+          practiceTime: "0h",
+        },
       });
     }
 
     const totalInterviews = sessions.length;
-    const avgScore = sessions.reduce((acc, s) => acc + (s.analysis?.score || 0), 0) / totalInterviews;
+    const avgScore =
+      sessions.reduce((acc, s) => acc + (s.analysis?.score || 0), 0) /
+      totalInterviews;
 
     const totalDurationMs = sessions.reduce((acc, s) => {
       if (s.startTime && s.endTime) {
@@ -509,9 +620,9 @@ export const getDashboardStats = async (req, res) => {
       stats: {
         totalInterviews,
         avgConfidence: Math.round(avgScore),
-        goalsMet: `${sessions.filter(s => (s.analysis?.score || 0) >= 80).length}/${totalInterviews}`,
-        practiceTime: `${practiceTimeHours}h`
-      }
+        goalsMet: `${sessions.filter((s) => (s.analysis?.score || 0) >= 80).length}/${totalInterviews}`,
+        practiceTime: `${practiceTimeHours}h`,
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

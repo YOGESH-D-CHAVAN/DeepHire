@@ -14,8 +14,8 @@ const extractTextFromBuffer = async (buffer) => {
 };
 
 const llm = new ChatGroq({
-  model: "llama-3.3-70b-versatile",
-  temperature: 0.1,
+  model: "llama-3.1-8b-instant",   // Much faster model for extraction
+  temperature: 0,                   // Deterministic output
   apiKey: process.env.GROQ_API_KEY,
 });
 
@@ -37,7 +37,7 @@ export const extractResumeData = async (req, res) => {
 
 Resume Text:
 ---
-${rawText.substring(0, 8000)}
+${rawText.substring(0, 5000)}
 ---
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no explanation):
