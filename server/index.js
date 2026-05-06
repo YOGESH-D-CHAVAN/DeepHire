@@ -5,6 +5,7 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import analysisRoutes from './routes/analysisRoutes.js';
 import interviewRoutes from './routes/interviewRoutes.js';
+import resumeRoutes from './routes/resumeRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,6 +22,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Routes
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/interview', interviewRoutes);
+app.use('/api/resume', resumeRoutes);
 
 // Basic Health Check Route
 app.get('/', (req, res) => {
