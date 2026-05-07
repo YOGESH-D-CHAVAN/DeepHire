@@ -1,6 +1,6 @@
-import { createRequire } from 'module';
+import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const { PDFParse } = require('pdf-parse');
+const { PDFParse } = require("pdf-parse");
 
 import { ChatGroq } from "@langchain/groq";
 
@@ -10,27 +10,48 @@ const extractTextFromBuffer = async (buffer) => {
   const result = await parser.getText();
   await parser.destroy();
   // result.pages is an array of { text, num } — join all page texts
-  return result.pages.map(p => p.text).join('\n');
+  return result.pages.map((p) => p.text).join("\n");
 };
 
 const llm = new ChatGroq({
-  model: "llama-3.1-8b-instant",   // Much faster model for extraction
-  temperature: 0,                   // Deterministic output
+  model: "llama-3.1-8b-instant", // Much faster model for extraction
+  temperature: 0, // Deterministic output
   apiKey: process.env.GROQ_API_KEY,
 });
 
 export const extractResumeData = async (req, res) => {
   try {
+    console.log(
+      `[ResumeController] Starting extraction for file: ${req.file?.originalname}`,
+    );
+
     if (!req.file) {
-      return res.status(400).json({ success: false, error: "No file uploaded." });
+      console.error("[ResumeController] No file uploaded");
+      return res
+        .status(400)
+        .json({ success: false, error: "No file uploaded." });
     }
+
+    console.log(`[ResumeController] File size: ${req.file.size} bytes`);
 
     // Step 1: Extract raw text from the PDF buffer using the v2.x class-based API
+    console.log("[ResumeController] Extracting text from PDF...");
     const rawText = await extractTextFromBuffer(req.file.buffer);
+    console.log(
+      `[ResumeController] Extracted ${rawText.length} characters from PDF`,
+    );
 
     if (!rawText || rawText.trim().length < 50) {
-      return res.status(400).json({ success: false, error: "Could not extract meaningful text from the PDF." });
+      console.error("[ResumeController] PDF text too short or empty");
+      return res
+        .status(400)
+        .json({
+          success: false,
+          error: "Could not extract meaningful text from the PDF.",
+        });
     }
+
+    console.log("[ResumeController] Sending to Groq LLM for parsing...");
 
     // Step 2: Use Groq LLM to parse and structure the resume data
     const prompt = `You are a resume parser. Extract structured information from the following resume text and return it as a valid JSON object.
@@ -80,18 +101,32 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
     let content = response.content.trim();
 
     // Strip markdown code blocks if present
-    content = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    content = content
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .trim();
 
     let resumeData;
     try {
       resumeData = JSON.parse(content);
     } catch (parseError) {
       console.error("[ResumeController] JSON Parse Error:", parseError.message);
-      console.error("[ResumeController] Raw content:", content.substring(0, 500));
-      return res.status(500).json({ success: false, error: "Failed to parse resume structure from AI response." });
+      console.error(
+        "[ResumeController] Raw content:",
+        content.substring(0, 500),
+      );
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error: "Failed to parse resume structure from AI response.",
+        });
     }
 
-    console.log(`[ResumeController] Successfully extracted resume for: ${resumeData.name || 'Unknown'}`);
+    console.log(
+      `[ResumeController] Successfully extracted resume for: ${resumeData.name || "Unknown"}`,
+    );
 
     return res.status(200).json({
       success: true,
@@ -100,11 +135,12 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
   } catch (error) {
     console.error("[ResumeController] Error:", error);
 
-    if (error.message?.includes('rate_limit_exceeded')) {
+    if (error.message?.includes("rate_limit_exceeded")) {
       return res.status(429).json({
         success: false,
-        error: "AI is currently busy (Rate Limit). Please try again in a moment.",
-        isRateLimit: true
+        error:
+          "AI is currently busy (Rate Limit). Please try again in a moment.",
+        isRateLimit: true,
       });
     }
 

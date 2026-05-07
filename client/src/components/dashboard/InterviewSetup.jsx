@@ -1,9 +1,20 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, FileText, Sparkles, CheckCircle2, X, Loader2, User, Briefcase, Code2, AlertCircle } from 'lucide-react';
-import { cn } from '../../utils/cn';
-import { useNavigate } from 'react-router-dom';
-import API_BASE_URL from '../../config/api';
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Upload,
+  FileText,
+  Sparkles,
+  CheckCircle2,
+  X,
+  Loader2,
+  User,
+  Briefcase,
+  Code2,
+  AlertCircle,
+} from "lucide-react";
+import { cn } from "../../utils/cn";
+import { useNavigate } from "react-router-dom";
+import API_BASE_URL from "../../config/api";
 
 const InterviewSetup = () => {
   const navigate = useNavigate();
@@ -15,8 +26,8 @@ const InterviewSetup = () => {
   const [selectedFile, setSelectedFile] = useState(null);
 
   const processFile = async (file) => {
-    if (!file || file.type !== 'application/pdf') {
-      setUploadError('Please upload a valid PDF file.');
+    if (!file || file.type !== "application/pdf") {
+      setUploadError("Please upload a valid PDF file.");
       return;
     }
 
@@ -28,26 +39,38 @@ const InterviewSetup = () => {
 
     try {
       const formData = new FormData();
-      formData.append('resume', file);
+      formData.append("resume", file);
+
+      console.log(`[Resume] Uploading to: ${API_BASE_URL}/api/resume/extract`);
 
       const response = await fetch(`${API_BASE_URL}/api/resume/extract`, {
-        method: 'POST',
+        method: "POST",
         body: formData,
       });
 
+      console.log(`[Resume] Server response status: ${response.status}`);
+
       const data = await response.json();
 
-      if (data.success) {
+      if (response.ok && data.success) {
         setResumeData(data.resumeData);
-        console.log('%c[Resume] Extracted Successfully:', 'color: #10b981; font-weight: bold;', data.resumeData);
+        console.log(
+          "%c[Resume] Extracted Successfully:",
+          "color: #10b981; font-weight: bold;",
+          data.resumeData,
+        );
       } else {
-        setUploadError(data.error || 'Failed to extract resume data.');
+        const errorMsg = data.error || `Server error (${response.status})`;
+        setUploadError(errorMsg);
+        console.error("[Resume] Extraction failed:", errorMsg);
         setFileName(null);
         setSelectedFile(null);
       }
     } catch (err) {
-      console.error('[Resume] Upload Error:', err);
-      setUploadError('Network error. Please ensure the server is running.');
+      console.error("[Resume] Upload Error:", err);
+      const errorMsg =
+        err.message || "Network error. Please ensure the server is running.";
+      setUploadError(errorMsg);
       setFileName(null);
       setSelectedFile(null);
     } finally {
@@ -84,7 +107,7 @@ const InterviewSetup = () => {
 
   const handleStartInterview = () => {
     // Navigate to interview page, passing resumeData if available
-    navigate('/interview', {
+    navigate("/interview", {
       state: {
         resumeData: resumeData || null,
         hasResume: !!resumeData,
@@ -93,7 +116,10 @@ const InterviewSetup = () => {
   };
 
   const topSkills = resumeData
-    ? [...(resumeData.technicalSkills || []), ...(resumeData.skills || [])].slice(0, 5)
+    ? [
+        ...(resumeData.technicalSkills || []),
+        ...(resumeData.skills || []),
+      ].slice(0, 5)
     : [];
 
   return (
@@ -114,13 +140,16 @@ const InterviewSetup = () => {
         {/* Content Area */}
         <div className="flex-1 px-8 relative overflow-hidden overflow-y-auto custom-scrollbar">
           <div className="space-y-4 mt-2 pb-2">
-
             {/* Upload Zone */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-violet-400" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Upload Resume</span>
-                <span className="text-[9px] text-white/20 ml-auto uppercase tracking-wider">Optional · PDF only</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                  Upload Resume
+                </span>
+                <span className="text-[9px] text-white/20 ml-auto uppercase tracking-wider">
+                  Optional · PDF only
+                </span>
               </div>
 
               <div
@@ -129,19 +158,34 @@ const InterviewSetup = () => {
                 onDrop={handleDrop}
                 className={cn(
                   "relative group/drop border-2 border-dashed rounded-[2rem] p-8 transition-all duration-500 cursor-pointer text-center",
-                  isDragging ? "border-cyan-500 bg-cyan-500/5" : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]",
+                  isDragging
+                    ? "border-cyan-500 bg-cyan-500/5"
+                    : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]",
                   resumeData ? "border-green-500/40 bg-green-500/5" : "",
-                  uploadError ? "border-red-500/40 bg-red-500/5" : ""
+                  uploadError ? "border-red-500/40 bg-red-500/5" : "",
                 )}
-                onClick={() => !isProcessing && document.getElementById('resume-upload').click()}
+                onClick={() =>
+                  !isProcessing &&
+                  document.getElementById("resume-upload").click()
+                }
               >
-                <input id="resume-upload" type="file" className="hidden" onChange={handleFileChange} accept=".pdf" />
-                <div className={cn(
-                  "w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 transition-all duration-500",
-                  resumeData ? "bg-green-500/20 text-green-400" : 
-                  uploadError ? "bg-red-500/20 text-red-400" :
-                  "bg-white/5 text-white/20 group-hover/drop:text-cyan-400"
-                )}>
+                <input
+                  id="resume-upload"
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileChange}
+                  accept=".pdf"
+                />
+                <div
+                  className={cn(
+                    "w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 transition-all duration-500",
+                    resumeData
+                      ? "bg-green-500/20 text-green-400"
+                      : uploadError
+                        ? "bg-red-500/20 text-red-400"
+                        : "bg-white/5 text-white/20 group-hover/drop:text-cyan-400",
+                  )}
+                >
                   {isProcessing ? (
                     <Loader2 className="w-7 h-7 animate-spin" />
                   ) : resumeData ? (
@@ -154,20 +198,29 @@ const InterviewSetup = () => {
                 </div>
 
                 <p className="text-sm font-black text-white truncate px-4">
-                  {isProcessing ? "Analyzing Resume..." : resumeData ? fileName : uploadError ? "Upload Failed" : "Upload Resume"}
+                  {isProcessing
+                    ? "Analyzing Resume..."
+                    : resumeData
+                      ? fileName
+                      : uploadError
+                        ? "Upload Failed"
+                        : "Upload Resume"}
                 </p>
                 <p className="text-[10px] text-white/20 mt-1 uppercase tracking-widest font-bold">
-                  {isProcessing ? "Extracting your skills and experience..." :
-                   resumeData ? "Resume analyzed · Interview will be personalized" :
-                   uploadError ? uploadError :
-                   "Drop your PDF here or click to browse"}
+                  {isProcessing
+                    ? "Extracting your skills and experience..."
+                    : resumeData
+                      ? "Resume analyzed · Interview will be personalized"
+                      : uploadError
+                        ? uploadError
+                        : "Drop your PDF here or click to browse"}
                 </p>
                 {(resumeData || uploadError) && !isProcessing && (
                   <button
                     onClick={handleClearResume}
                     className="mt-4 text-[9px] font-black text-red-400/50 hover:text-red-400 transition-colors uppercase tracking-widest bg-red-500/5 px-4 py-2 rounded-full border border-red-500/10"
                   >
-                    {uploadError ? 'Try Again' : 'Replace File'}
+                    {uploadError ? "Try Again" : "Replace File"}
                   </button>
                 )}
               </div>
@@ -188,13 +241,19 @@ const InterviewSetup = () => {
                       <User className="w-5 h-5 text-cyan-400" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-white truncate">{resumeData.name || 'Candidate'}</p>
-                      <p className="text-[10px] text-cyan-400/80 truncate">{resumeData.currentRole || 'Role not specified'}</p>
+                      <p className="text-sm font-black text-white truncate">
+                        {resumeData.name || "Candidate"}
+                      </p>
+                      <p className="text-[10px] text-cyan-400/80 truncate">
+                        {resumeData.currentRole || "Role not specified"}
+                      </p>
                     </div>
                     {resumeData.totalExperience && (
                       <div className="ml-auto flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/20">
                         <Briefcase className="w-3 h-3 text-violet-400" />
-                        <span className="text-[10px] font-bold text-violet-300 whitespace-nowrap">{resumeData.totalExperience}</span>
+                        <span className="text-[10px] font-bold text-violet-300 whitespace-nowrap">
+                          {resumeData.totalExperience}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -204,11 +263,16 @@ const InterviewSetup = () => {
                     <div className="space-y-2">
                       <div className="flex items-center gap-1.5">
                         <Code2 className="w-3 h-3 text-white/30" />
-                        <span className="text-[9px] font-black uppercase tracking-widest text-white/30">Top Skills</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-white/30">
+                          Top Skills
+                        </span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {topSkills.map((skill, i) => (
-                          <span key={i} className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60">
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/60"
+                          >
                             {skill}
                           </span>
                         ))}
@@ -220,7 +284,8 @@ const InterviewSetup = () => {
                   <div className="flex items-center gap-2 pt-1 border-t border-white/5">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                     <p className="text-[10px] text-white/40 font-medium">
-                      Interview will start directly with behavioral questions — no setup needed
+                      Interview will start directly with behavioral questions —
+                      no setup needed
                     </p>
                   </div>
                 </motion.div>
@@ -231,8 +296,9 @@ const InterviewSetup = () => {
             {!resumeData && !uploadError && (
               <div className="p-5 rounded-[1.5rem] bg-white/[0.02] border border-white/5">
                 <p className="text-[11px] text-white/30 leading-relaxed italic text-center">
-                  Without a resume, the AI will ask for your domain and number of questions before starting.
-                  Upload a resume above for a fully personalized, structured interview.
+                  Without a resume, the AI will ask for your domain and number
+                  of questions before starting. Upload a resume above for a
+                  fully personalized, structured interview.
                 </p>
               </div>
             )}
@@ -247,13 +313,21 @@ const InterviewSetup = () => {
             id="start-interview-btn"
             className={cn(
               "group/btn relative w-full h-14 rounded-[1.5rem] bg-white text-black font-black text-xs uppercase tracking-[0.2em] overflow-hidden hover:scale-[1.02] active:scale-[0.98] transition-all duration-500",
-              isProcessing ? "opacity-50 cursor-not-allowed" : ""
+              isProcessing ? "opacity-50 cursor-not-allowed" : "",
             )}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-violet-500 opacity-0 group-hover/btn:opacity-100 transition-opacity" />
             <div className="relative z-10 flex items-center justify-center gap-2 group-hover/btn:text-white transition-colors">
-              {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {isProcessing ? "Processing..." : resumeData ? "Start Personalized Interview" : "Start AI Interview"}
+              {isProcessing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              {isProcessing
+                ? "Processing..."
+                : resumeData
+                  ? "Start Personalized Interview"
+                  : "Start AI Interview"}
             </div>
           </button>
         </div>
