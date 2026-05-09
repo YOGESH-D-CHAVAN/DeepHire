@@ -1,4 +1,4 @@
- import InterviewSession from "../models/InterviewSession.js";
+import InterviewSession from "../models/InterviewSession.js";
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { ChatGroq } from "@langchain/groq";
 import { MemorySaver } from "@langchain/langgraph";
@@ -327,6 +327,7 @@ FOLLOW-UP RULES:
 
 INTERVIEW FLOW:
 - Start by asking for the target domain/role and number of questions.
+- Once the domain/role is provided, ask the candidate to give a brief introduction of themselves before starting technical questions.
 - Ask one question at a time.
 - Keep transitions brief.
 - End with a concise performance and integrity summary only when the candidate clearly indicates the interview is over.
@@ -386,10 +387,11 @@ ${(resumeData.education || []).map((e) => `${e.degree} from ${e.institution} (${
 
 === INTERVIEW STRUCTURE — FOLLOW EXACTLY ===
 
-PHASE 1: BEHAVIORAL (first 3-4 questions)
+PHASE 1: INTRODUCTION & BEHAVIORAL (first 3-4 questions)
 - Open with a warm but professional greeting, address the candidate by first name if available.
 - Do NOT ask for domain, role, or number of questions. You already have all context from the resume.
-- Start IMMEDIATELY with behavioral questions. Example openers:
+- CRITICAL: Your very first question MUST be: "Could you please introduce yourself and walk me through your professional background?" or a similar warm invitation for an introduction.
+- After the introduction, proceed with behavioral questions. Example topics:
   * "Tell me about a challenging project you worked on recently."
   * "Walk me through a time you had a technical disagreement with your team."
   * "Describe a situation where you had to deliver under a tight deadline."
