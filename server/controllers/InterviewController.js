@@ -6,8 +6,7 @@ import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 
-const sessionEvaluations = new Map();
-const sessionStates = new Map();
+import { sessionManager } from "../services/SessionManager.js";
 
 const uniqueList = (items = []) => [
   ...new Set(
@@ -54,14 +53,11 @@ const createDefaultSessionState = () => ({
 });
 
 const getSessionState = (threadId) => {
-  if (!sessionStates.has(threadId)) {
-    sessionStates.set(threadId, createDefaultSessionState());
-  }
-  return sessionStates.get(threadId);
+  return sessionManager.getState(threadId, createDefaultSessionState);
 };
 
 const getRecentScores = (threadId, count = 2) => {
-  const evaluations = sessionEvaluations.get(threadId) || [];
+  const evaluations = sessionManager.getEvaluations(threadId);
   return evaluations.slice(-count).map((item) => item.score);
 };
 
@@ -91,7 +87,7 @@ const upsertConfidenceBySkill = (confidenceBySkill, skills, score) => {
 };
 
 const buildSessionInsights = (threadId) => {
-  const evaluations = sessionEvaluations.get(threadId) || [];
+  const evaluations = sessionManager.getEvaluations(threadId);
   const state = getSessionState(threadId);
 
   const confidenceBySkill = Object.entries(state.confidenceBySkill)
@@ -198,10 +194,7 @@ const saveAndEvaluate = tool(
         timestamp: new Date().toISOString(),
       };
 
-      if (!sessionEvaluations.has(threadId)) {
-        sessionEvaluations.set(threadId, []);
-      }
-      sessionEvaluations.get(threadId).push(evaluation);
+      sessionManager.addEvaluation(threadId, evaluation);
 
       if (targetRole?.trim()) {
         state.targetRole = targetRole.trim();
@@ -447,11 +440,7 @@ const getLLM = () => {
   return llm;
 };
 
-// Per-thread resume data store — populated on the first message, read by the agent.
-const sessionResumeData = new Map(); // threadId → resumeData | null
-
-// Track which threads have already had their SystemMessage injected.
-const initializedThreads = new Set();
+// Per-thread state is now handled by sessionManager
 
 // Single agent instance — no static prompt baked in.
 let agent;
@@ -484,8 +473,8 @@ export const processInterviewMessage = async (req, res) => {
     resumeData &&
     typeof resumeData === "object" &&
     Object.keys(resumeData).length > 0;
-  if (!sessionResumeData.has(threadId)) {
-    sessionResumeData.set(threadId, hasResume ? resumeData : null);
+  if (!sessionManager.hasResumeData(threadId)) {
+    sessionManager.setResumeData(threadId, hasResume ? resumeData : null);
   }
 
   const activeAgent = getAgent();
@@ -498,9 +487,9 @@ export const processInterviewMessage = async (req, res) => {
   try {
     // Inject system message on the first turn only
     let inputMessages;
-    if (!initializedThreads.has(threadId)) {
-      initializedThreads.add(threadId);
-      const storedResume = sessionResumeData.get(threadId);
+    if (!sessionManager.isInitialized(threadId)) {
+      sessionManager.setInitialized(threadId);
+      const storedResume = sessionManager.getResumeData(threadId);
       const systemText = storedResume
         ? buildResumeSystemMessage(storedResume)
         : defaultSystemMessage;
@@ -545,7 +534,7 @@ export const processInterviewMessage = async (req, res) => {
       throw new Error("AI Agent generated an empty response.");
     }
 
-    const evaluations = sessionEvaluations.get(threadId) || [];
+    const evaluations = sessionManager.getEvaluations(threadId);
     const sessionInsights = buildSessionInsights(threadId);
 
     res.status(200).json({
