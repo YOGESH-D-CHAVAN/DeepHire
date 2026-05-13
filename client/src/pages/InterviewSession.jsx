@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -6,12 +6,9 @@ import {
   MicOff,
   Video,
   VideoOff,
-  PhoneOff,
-  MessageSquare,
   BarChart3,
   Settings,
   AlertCircle,
-  ChevronRight,
   Bot,
   User,
   Smile,
@@ -19,7 +16,6 @@ import {
   Meh,
   Zap,
   Eye,
-  Hand,
   Type,
   Trophy,
   Target,
@@ -105,6 +101,7 @@ const InterviewSession = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [threadId] = useState(`INT-${Date.now()}`);
   const [isRecognitionActive, setIsRecognitionActive] = useState(false);
+  const [speechError, setSpeechError] = useState("");
   const [agentText, setAgentText] = useState("");
   const [evaluations, setEvaluations] = useState([]);
   const [sessionInsights, setSessionInsights] = useState(null);
@@ -205,7 +202,6 @@ const InterviewSession = () => {
 
   const [expression, setExpression] = useState("Neutral");
   const [eyeStatus, setEyeStatus] = useState("Focused");
-  const [handStatus, setHandStatus] = useState("None Detected");
   const [transcript, setTranscript] = useState("");
 
   const videoRef = useRef(null);
@@ -215,6 +211,9 @@ const InterviewSession = () => {
   const handLandmarkerRef = useRef(null);
   const requestRef = useRef(null);
   const recognitionRef = useRef(null);
+  const recognitionRestartTimerRef = useRef(null);
+  const isRecognitionActiveRef = useRef(false);
+  const shouldListenRef = useRef(false);
   const watchdogTimerRef = useRef(null);
   const lastInferenceTimeRef = useRef(0);
   const [isBrowserSupported, setIsBrowserSupported] = useState(true);
@@ -241,8 +240,10 @@ const InterviewSession = () => {
       const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
       const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const hasSpeechRecognition =
+        !!(window.SpeechRecognition || window.webkitSpeechRecognition);
 
-      if (isFirefox || (isSafari && isIOS)) {
+      if (isFirefox || (isSafari && isIOS) || !hasSpeechRecognition) {
         setIsBrowserSupported(false);
       }
 
@@ -283,6 +284,132 @@ const InterviewSession = () => {
     initMediaPipe();
   }, []);
 
+  const getSpeechRecognitionConstructor = () =>
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  const setRecognitionActive = (active) => {
+    isRecognitionActiveRef.current = active;
+    setIsRecognitionActive(active);
+  };
+
+  const clearRecognitionTimers = () => {
+    if (recognitionRestartTimerRef.current) {
+      clearTimeout(recognitionRestartTimerRef.current);
+      recognitionRestartTimerRef.current = null;
+    }
+    if (watchdogTimerRef.current) {
+      clearInterval(watchdogTimerRef.current);
+      watchdogTimerRef.current = null;
+    }
+  };
+
+  const startRecognition = () => {
+    const SpeechRecognition = getSpeechRecognitionConstructor();
+
+    if (!SpeechRecognition) {
+      shouldListenRef.current = false;
+      isMutedRef.current = true;
+      setIsMuted(true);
+      setRecognitionActive(false);
+      setSpeechError(
+        "Voice input is not supported in this browser. Please use Chrome or Edge.",
+      );
+      return false;
+    }
+
+    if (!recognitionRef.current) {
+      setSpeechError("Voice input is still getting ready. Try the mic again.");
+      return false;
+    }
+
+    if (!hasStartedRef.current || isRecognitionActiveRef.current) {
+      return true;
+    }
+
+    try {
+      recognitionRef.current.start();
+      return true;
+    } catch (err) {
+      if (err?.name === "InvalidStateError") {
+        return true;
+      }
+      console.error("[Speech API] Start Error:", err);
+      setRecognitionActive(false);
+      setSpeechError("Voice input could not start. Turn the mic off and on again.");
+      return false;
+    }
+  };
+
+  const scheduleRecognitionRestart = () => {
+    if (recognitionRestartTimerRef.current) {
+      clearTimeout(recognitionRestartTimerRef.current);
+    }
+
+    recognitionRestartTimerRef.current = setTimeout(() => {
+      recognitionRestartTimerRef.current = null;
+      if (shouldListenRef.current && hasStartedRef.current && !isMutedRef.current) {
+        startRecognition();
+      }
+    }, 250);
+  };
+
+  const stopRecognition = ({ abort = false } = {}) => {
+    clearRecognitionTimers();
+    shouldListenRef.current = false;
+
+    if (!recognitionRef.current) {
+      setRecognitionActive(false);
+      return;
+    }
+
+    try {
+      if (abort && recognitionRef.current.abort) {
+        recognitionRef.current.abort();
+      } else {
+        recognitionRef.current.stop();
+      }
+    } catch (err) {
+      console.warn("[Speech API] Stop ignored:", err);
+    }
+
+    setRecognitionActive(false);
+  };
+
+  const getSpeechErrorMessage = (error) => {
+    switch (error) {
+      case "not-allowed":
+      case "service-not-allowed":
+        return "Microphone permission is blocked. Allow microphone access in your browser, then turn the mic on again.";
+      case "audio-capture":
+        return "No microphone was found. Check your input device, then turn the mic on again.";
+      case "network":
+        return "Voice recognition could not connect. Check your connection and try again.";
+      default:
+        return "Voice input stopped unexpectedly. Turn the mic off and on again.";
+    }
+  };
+
+  const handleMicToggle = () => {
+    if (!hasStartedRef.current) return;
+
+    if (isMutedRef.current) {
+      isMutedRef.current = false;
+      shouldListenRef.current = true;
+      setIsMuted(false);
+      setSpeechError("");
+      if (isInterviewerTalkingRef.current) {
+        stopAgentSpeech();
+      }
+      startRecognition();
+    } else {
+      isMutedRef.current = true;
+      setIsMuted(true);
+      setTranscript("");
+      setSpeechError("");
+      stopRecognition({ abort: true });
+    }
+  };
+
   // Initialize Web Speech API
   useEffect(() => {
     if (!hasStarted) return;
@@ -303,16 +430,21 @@ const InterviewSession = () => {
       recognition.lang = "en-US";
 
       recognition.onstart = () => {
-        setIsRecognitionActive(true);
+        setRecognitionActive(true);
+        setSpeechError("");
         console.log("[Speech API] Listening...");
         
         // Reset watchdog
         if (watchdogTimerRef.current) clearInterval(watchdogTimerRef.current);
         watchdogTimerRef.current = setInterval(() => {
-          if (!isMutedRef.current && hasStartedRef.current && !recognitionRef.current?.isActive) {
-             // If we are supposed to be listening but no events for a while, restart
-             console.log("[Speech API] Watchdog triggering restart...");
-             try { recognition.stop(); } catch(e) {}
+          if (
+            shouldListenRef.current &&
+            hasStartedRef.current &&
+            !isMutedRef.current &&
+            !isRecognitionActiveRef.current
+          ) {
+            console.log("[Speech API] Watchdog triggering restart...");
+            startRecognition();
           }
         }, 5000);
       };
@@ -321,7 +453,8 @@ const InterviewSession = () => {
         let interimTranscript = "";
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           if (event.results[i].isFinal) {
-            const text = event.results[i][0].transcript;
+            const text = event.results[i][0].transcript.trim();
+            if (!text) continue;
             setFullTranscript((prev) => [
               ...prev,
               { text, timestamp: new Date().toISOString() },
@@ -345,21 +478,19 @@ const InterviewSession = () => {
       };
 
       recognition.onend = () => {
-        setIsRecognitionActive(false);
+        setRecognitionActive(false);
+        if (watchdogTimerRef.current) {
+          clearInterval(watchdogTimerRef.current);
+          watchdogTimerRef.current = null;
+        }
 
         // Auto-restart logic using refs to avoid dependency re-runs
         if (
+          shouldListenRef.current &&
           !isMutedRef.current &&
           hasStartedRef.current
         ) {
-          // Restart quickly to avoid missing the start of sentences
-          setTimeout(() => {
-            try {
-              if (recognitionRef.current) {
-                recognitionRef.current.start();
-              }
-            } catch (err) {}
-          }, 100); 
+          scheduleRecognitionRestart();
         } else {
           console.log("[Speech API] Connection closed");
         }
@@ -368,7 +499,17 @@ const InterviewSession = () => {
       recognition.onerror = (event) => {
         if (event.error === "no-speech") return;
         console.error("[Speech API] Error:", event.error);
-        if (event.error === "not-allowed") setIsMuted(true);
+        setSpeechError(getSpeechErrorMessage(event.error));
+        if (
+          event.error === "not-allowed" ||
+          event.error === "service-not-allowed" ||
+          event.error === "audio-capture"
+        ) {
+          shouldListenRef.current = false;
+          isMutedRef.current = true;
+          setIsMuted(true);
+          setRecognitionActive(false);
+        }
       };
 
       return recognition;
@@ -376,25 +517,31 @@ const InterviewSession = () => {
 
     recognitionRef.current = initRecognition();
 
-    if (!isMuted && !isInterviewerTalking) {
-      try {
-        recognitionRef.current.start();
-      } catch (err) {}
+    if (!isMutedRef.current) {
+      shouldListenRef.current = true;
+      startRecognition();
     }
 
     return () => {
-      if (watchdogTimerRef.current) clearInterval(watchdogTimerRef.current);
+      clearRecognitionTimers();
+      shouldListenRef.current = false;
       if (recognitionRef.current) {
         const r = recognitionRef.current;
         r.onend = null;
         r.onerror = null;
         try {
-          r.stop();
-        } catch (err) {}
+          if (r.abort) r.abort();
+          else r.stop();
+        } catch (err) {
+          console.warn("[Speech API] Cleanup ignored:", err);
+        }
         recognitionRef.current = null;
       }
+      setRecognitionActive(false);
     };
-  }, [hasStarted]); // Removed isMuted and isInterviewerTalking from dependencies
+    // Recognition callbacks use refs so the listener is not recreated on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasStarted]);
 
   // Timer
   useEffect(() => {
@@ -404,7 +551,9 @@ const InterviewSession = () => {
 
   // Initial Agent Greeting
   useEffect(() => {
-    if (hasStarted) {
+    if (!hasStarted) return;
+
+    const greetingTimer = setTimeout(() => {
       if (hasResume) {
         // Resume mode: greet and start immediately — agent knows the candidate already
         handleAgentMessage("Hello, please begin the interview.");
@@ -412,7 +561,10 @@ const InterviewSession = () => {
         // Manual mode: agent asks for domain and number of questions
         handleAgentMessage("Begin interview setup.");
       }
-    }
+    }, 0);
+
+    return () => clearTimeout(greetingTimer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStarted]);
 
   // Camera Streaming Logic
@@ -537,7 +689,6 @@ const InterviewSession = () => {
           );
           if (handResult.landmarks && handResult.landmarks.length > 0)
             currentHand = `${handResult.landmarks.length} Hand(s) Detected`;
-          setHandStatus(currentHand);
         }
 
         // Precise behavioral logging
@@ -593,13 +744,7 @@ const InterviewSession = () => {
     // Stop all active services
     stopCamera();
     stopAgentSpeech();
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (err) {
-        console.error("Error stopping recognition:", err);
-      }
-    }
+    stopRecognition({ abort: true });
     setHasStarted(false);
 
     try {
@@ -990,15 +1135,38 @@ const InterviewSession = () => {
               <div
                 className={cn(
                   "w-1 h-1 md:w-1.5 md:h-1.5 rounded-full",
-                  isRecognitionActive
+                  speechError
+                    ? "bg-red-500 animate-pulse"
+                    : isRecognitionActive
                     ? "bg-green-500 animate-pulse"
                     : "bg-white/20",
                 )}
               />
               <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white/60">
-                {isRecognitionActive ? "Listening..." : "Mic Off"}
+                {speechError
+                  ? "Mic Error"
+                  : isRecognitionActive
+                    ? "Listening..."
+                    : "Mic Off"}
               </span>
             </div>
+            <AnimatePresence>
+              {speechError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="max-w-[16rem] rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-left shadow-xl backdrop-blur-md"
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-red-300" />
+                    <p className="text-[10px] font-medium leading-relaxed text-red-100/90">
+                      {speechError}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
             {/* Performance Scorecard - Hidden on very small screens */}
             <AnimatePresence>
               {evaluations.length > 0 && (
@@ -1097,7 +1265,10 @@ const InterviewSession = () => {
         </div>
         <div className="flex items-center gap-4 md:gap-5">
           <button
-            onClick={() => setIsMuted(!isMuted)}
+            type="button"
+            aria-label={isMuted ? "Turn microphone on" : "Mute microphone"}
+            title={isMuted ? "Turn microphone on" : "Mute microphone"}
+            onClick={handleMicToggle}
             className={cn(
               "w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border",
               isMuted
