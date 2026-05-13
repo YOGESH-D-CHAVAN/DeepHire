@@ -603,27 +603,27 @@ const InterviewSession = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-2xl"
+            className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 backdrop-blur-2xl p-4"
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="max-w-md w-full p-12 bg-[#0a0a0a] border border-white/10 rounded-[3rem] text-center shadow-2xl"
+              className="max-w-md w-full p-8 md:p-12 bg-[#0a0a0a] border border-white/10 rounded-[2rem] md:rounded-[3rem] text-center shadow-2xl"
             >
-              <div className="w-20 h-20 bg-cyan-500/20 rounded-3xl flex items-center justify-center mx-auto mb-8 border border-cyan-500/20">
-                <Bot className="w-10 h-10 text-cyan-400" />
+              <div className="w-16 h-16 md:w-20 md:h-20 bg-cyan-500/20 rounded-2xl md:rounded-3xl flex items-center justify-center mx-auto mb-6 md:mb-8 border border-cyan-500/20">
+                <Bot className="w-8 h-8 md:w-10 md:h-10 text-cyan-400" />
               </div>
-              <h2 className="text-3xl font-black mb-4 tracking-tight">
+              <h2 className="text-2xl md:text-3xl font-black mb-4 tracking-tight">
                 Ready to Start?
               </h2>
-              <p className="text-white/40 mb-10 text-sm leading-relaxed">
+              <p className="text-white/40 mb-8 md:mb-10 text-xs md:text-sm leading-relaxed">
                 Your camera and microphone will only be activated once you click
                 the button below. Ensure you are in a quiet, well-lit
                 environment.
               </p>
               <button
                 onClick={() => setHasStarted(true)}
-                className="w-full py-5 rounded-2xl bg-cyan-500 text-[#0a0a0a] font-black text-sm uppercase tracking-widest hover:bg-cyan-400 transition-all shadow-[0_0_30px_rgba(6,182,212,0.3)] active:scale-95"
+                className="w-full py-4 md:py-5 rounded-2xl bg-cyan-500 text-[#0a0a0a] font-black text-xs md:text-sm uppercase tracking-widest hover:bg-cyan-400 transition-all shadow-[0_0_30px_rgba(6,182,212,0.3)] active:scale-95"
               >
                 Start Mock Interview
               </button>
@@ -639,45 +639,45 @@ const InterviewSession = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/90 backdrop-blur-md"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-black/90 backdrop-blur-md"
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-[#0a0a0a] border border-white/10 rounded-[3rem] w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-2xl relative"
+              className="bg-[#0a0a0a] border border-white/10 rounded-[2rem] md:rounded-[3rem] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl relative"
             >
               <button
                 onClick={() => setAnalysisResult(null)}
-                className="absolute top-8 right-8 p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors z-10"
+                className="absolute top-4 right-4 md:top-8 md:right-8 p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors z-10"
               >
-                <X className="w-6 h-6 text-white/40" />
+                <X className="w-5 h-5 md:w-6 md:h-6 text-white/40" />
               </button>
 
-              <div className="p-12 overflow-y-auto custom-scrollbar">
-                <div className="flex items-center gap-6 mb-12">
-                  <div className="w-24 h-24 rounded-3xl bg-cyan-500/20 flex items-center justify-center border border-cyan-500/20">
-                    <Trophy className="w-12 h-12 text-cyan-400" />
+              <div className="p-6 md:p-12 overflow-y-auto custom-scrollbar">
+                <div className="flex flex-col md:flex-row items-center md:items-start gap-6 mb-8 md:mb-12">
+                  <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-cyan-500/20 flex items-center justify-center border border-cyan-500/20 shrink-0">
+                    <Trophy className="w-10 h-10 md:w-12 md:h-12 text-cyan-400" />
                   </div>
-                  <div>
-                    <h2 className="text-4xl font-black tracking-tight mb-2">
+                  <div className="text-center md:text-left">
+                    <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-2">
                       Performance Analysis
                     </h2>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center md:justify-start gap-3">
                       <div className="px-3 py-1 bg-cyan-500 rounded-full text-[10px] font-black uppercase text-[#0a0a0a]">
                         DeepHire AI Score
                       </div>
-                      <span className="text-3xl font-mono font-black text-cyan-400">
+                      <span className="text-2xl md:text-3xl font-mono font-black text-cyan-400">
                         {analysisResult.score}/100
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-                  <div className="p-8 rounded-[2rem] bg-white/5 border border-white/5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 mb-8 md:mb-12">
+                  <div className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] bg-white/5 border border-white/5">
                     <div className="flex items-center gap-3 mb-6">
                       <Target className="w-5 h-5 text-green-400" />
-                      <h3 className="font-bold text-lg uppercase tracking-widest text-white/40 text-xs">
+                      <h3 className="font-bold uppercase tracking-widest text-white/40 text-[10px]">
                         Core Strengths
                       </h3>
                     </div>
@@ -685,7 +685,7 @@ const InterviewSession = () => {
                       {analysisResult.strengths.map((s, i) => (
                         <li
                           key={i}
-                          className="flex items-start gap-3 text-sm text-white/80 font-medium"
+                          className="flex items-start gap-3 text-xs md:text-sm text-white/80 font-medium"
                         >
                           <CheckCircle2 className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                           {s}
@@ -694,10 +694,10 @@ const InterviewSession = () => {
                     </ul>
                   </div>
 
-                  <div className="p-8 rounded-[2rem] bg-white/5 border border-white/5">
+                  <div className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] bg-white/5 border border-white/5">
                     <div className="flex items-center gap-3 mb-6">
                       <ZapOff className="w-5 h-5 text-red-400" />
-                      <h3 className="font-bold text-lg uppercase tracking-widest text-white/40 text-xs">
+                      <h3 className="font-bold uppercase tracking-widest text-white/40 text-[10px]">
                         Areas to Improve
                       </h3>
                     </div>
@@ -705,7 +705,7 @@ const InterviewSession = () => {
                       {analysisResult.weaknesses.map((w, i) => (
                         <li
                           key={i}
-                          className="flex items-start gap-3 text-sm text-white/80 font-medium"
+                          className="flex items-start gap-3 text-xs md:text-sm text-white/80 font-medium"
                         >
                           <div className="w-4 h-4 rounded-full border border-red-500/30 flex items-center justify-center mt-0.5 flex-shrink-0">
                             <div className="w-1.5 h-1.5 bg-red-500 rounded-full" />
@@ -719,17 +719,17 @@ const InterviewSession = () => {
 
                 {/* Behavioral Analysis Section */}
                 {analysisResult.behavioralAnalysis && (
-                  <div className="mb-12">
-                    <h3 className="font-bold mb-6 uppercase tracking-widest text-white/40 text-xs flex items-center gap-2">
+                  <div className="mb-8 md:mb-12">
+                    <h3 className="font-bold mb-6 uppercase tracking-widest text-white/40 text-[10px] flex items-center gap-2">
                       <Zap className="w-4 h-4 text-cyan-400" /> Behavioral
                       Insights
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
                       <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
                         <span className="text-[10px] uppercase font-bold text-white/20 mb-2">
                           Eye Contact
                         </span>
-                        <span className="text-2xl font-mono font-black text-cyan-400">
+                        <span className="text-xl md:text-2xl font-mono font-black text-cyan-400">
                           {analysisResult.behavioralAnalysis.eyeContactScore}%
                         </span>
                         <p className="text-[10px] text-white/40 mt-1">
@@ -740,14 +740,14 @@ const InterviewSession = () => {
                         <span className="text-[10px] uppercase font-bold text-white/20 mb-2">
                           Overall Sentiment
                         </span>
-                        <span className="text-xl font-bold text-violet-400">
+                        <span className="text-lg md:text-xl font-bold text-violet-400">
                           {analysisResult.behavioralAnalysis.sentiment}
                         </span>
                         <p className="text-[10px] text-white/40 mt-1">
                           Tone & Expression
                         </p>
                       </div>
-                      <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center text-center">
+                      <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center text-center sm:col-span-2 md:col-span-1">
                         <span className="text-[10px] uppercase font-bold text-white/20 mb-2">
                           Body Language
                         </span>
@@ -756,32 +756,21 @@ const InterviewSession = () => {
                         </span>
                       </div>
                     </div>
-                    <div className="mt-6 p-6 rounded-2xl bg-white/5 border border-white/5">
-                      <p className="text-xs text-white/60 leading-relaxed font-medium">
-                        <span className="text-cyan-400 mr-2 font-black uppercase text-[10px]">
-                          Expression Summary:
-                        </span>
-                        {
-                          analysisResult.behavioralAnalysis
-                            .facialExpressionSummary
-                        }
-                      </p>
-                    </div>
                   </div>
                 )}
 
-                <div className="p-8 rounded-[2rem] bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 mb-12">
-                  <h3 className="font-bold mb-4 uppercase tracking-widest text-white/40 text-xs">
+                <div className="p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/10 mb-8 md:mb-12">
+                  <h3 className="font-bold mb-4 uppercase tracking-widest text-white/40 text-[10px]">
                     AI Interviewer Feedback
                   </h3>
-                  <p className="text-white/80 leading-relaxed font-medium italic">
+                  <p className="text-white/80 text-sm md:text-base leading-relaxed font-medium italic">
                     "{analysisResult.feedback}"
                   </p>
                 </div>
 
                 <button
                   onClick={() => navigate("/dashboard")}
-                  className="w-full py-5 rounded-2xl bg-white text-black font-black text-sm uppercase tracking-widest hover:bg-white/90 transition-all active:scale-95 shadow-xl flex items-center justify-center gap-3"
+                  className="w-full py-4 md:py-5 rounded-2xl bg-white text-black font-black text-xs md:text-sm uppercase tracking-widest hover:bg-white/90 transition-all active:scale-95 shadow-xl flex items-center justify-center gap-3"
                 >
                   <BarChart3 className="w-4 h-4" />
                   Return to Dashboard
@@ -817,50 +806,49 @@ const InterviewSession = () => {
         )}
       </AnimatePresence>
 
-      <header className="h-16 px-6 flex items-center justify-between border-b border-white/5 bg-[#0a0a0a]">
-        <div className="flex items-center gap-4">
+      <header className="h-14 md:h-16 px-4 md:px-6 flex items-center justify-between border-b border-white/5 bg-[#0a0a0a]">
+        <div className="flex items-center gap-2 md:gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-            <span className="text-xs font-bold uppercase tracking-widest text-white/60">
-              Live Interview
+            <div className="w-1.5 h-1.5 md:w-2 md:h-2 bg-red-500 rounded-full animate-pulse" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/60">
+              Live
             </span>
           </div>
           <div className="h-4 w-[1px] bg-white/10" />
           {hasResume ? (
-            <div className="flex items-center gap-2">
-              <div className="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/20">
+            <div className="flex items-center gap-2 max-w-[150px] md:max-w-none">
+              <div className="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/20 hidden sm:block">
                 <span className="text-[9px] font-black uppercase tracking-widest text-cyan-400">
-                  Resume Mode
+                  Resume
                 </span>
               </div>
-              <span className="text-sm font-medium text-white/60">
-                {resumeData?.name || "Candidate"} ·{" "}
-                {resumeData?.currentRole || "Interview"}
+              <span className="text-[11px] md:text-sm font-medium text-white/60 truncate">
+                {resumeData?.name || "Candidate"}
               </span>
             </div>
           ) : (
-            <span className="text-sm font-medium text-cyan-400">
-              AI Interview Session
+            <span className="text-[11px] md:text-sm font-medium text-cyan-400">
+              AI Session
             </span>
           )}
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-3 md:gap-6">
           <div className="flex flex-col items-end">
-            <span className="text-[10px] text-white/40 uppercase font-bold tracking-tighter">
+            <span className="text-[8px] md:text-[10px] text-white/40 uppercase font-bold tracking-tighter">
               Duration
             </span>
-            <span className="text-sm font-mono font-bold text-white">
+            <span className="text-xs md:text-sm font-mono font-bold text-white">
               {formatTime(timer)}
             </span>
           </div>
           <button className="p-2 hover:bg-white/5 rounded-lg transition-colors">
-            <Settings className="w-5 h-5 text-white/40" />
+            <Settings className="w-4 h-4 md:w-5 md:h-5 text-white/40" />
           </button>
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden p-8 gap-8 relative bg-[#050505]">
-        <div className="flex-1 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 relative overflow-hidden shadow-2xl group transition-all duration-500 hover:border-cyan-500/20">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden p-4 md:p-8 gap-4 md:gap-8 relative bg-[#050505]">
+        <div className="flex-1 min-h-[300px] lg:min-h-0 bg-[#0a0a0a] rounded-[1.5rem] md:rounded-[2.5rem] border border-white/10 relative overflow-hidden shadow-2xl group transition-all duration-500 hover:border-cyan-500/20">
           <div className="absolute inset-0 z-10">
             <AIVisualizer
               isTalking={isInterviewerTalking}
@@ -874,10 +862,10 @@ const InterviewSession = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="absolute bottom-12 left-1/2 -translate-x-1/2 w-[80%] max-w-xl z-20 group/caption"
+                  className="absolute bottom-6 md:bottom-12 left-1/2 -translate-x-1/2 w-[90%] md:w-[80%] max-w-xl z-20 group/caption"
                 >
-                  <div className="bg-black/60 backdrop-blur-xl p-4 rounded-2xl border border-white/10 shadow-2xl relative">
-                    <p className="text-white font-medium text-center text-sm leading-relaxed tracking-wide">
+                  <div className="bg-black/60 backdrop-blur-xl p-3 md:p-4 rounded-2xl border border-white/10 shadow-2xl relative">
+                    <p className="text-white font-medium text-center text-xs md:text-sm leading-relaxed tracking-wide">
                       {agentText}
                     </p>
 
@@ -888,7 +876,7 @@ const InterviewSession = () => {
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={stopAgentSpeech}
-                        className="absolute -top-3 -right-3 p-2 bg-red-500 rounded-full shadow-lg border-2 border-white/20 hover:bg-red-600 transition-colors group"
+                        className="absolute -top-3 -right-3 p-1.5 md:p-2 bg-red-500 rounded-full shadow-lg border-2 border-white/20 hover:bg-red-600 transition-colors group"
                         title="Stop Agent Speaking"
                       >
                         <X className="w-3 h-3 text-white" />
@@ -902,39 +890,39 @@ const InterviewSession = () => {
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
 
           {isInterviewerTalking && (
-            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-end gap-1 h-8">
+            <div className="absolute bottom-6 md:bottom-10 left-1/2 -translate-x-1/2 z-20 flex items-end gap-1 h-6 md:h-8">
               {[...Array(5)].map((_, i) => (
                 <motion.div
                   key={i}
-                  animate={{ height: [8, 24, 12, 32, 8] }}
+                  animate={{ height: [6, 18, 10, 24, 6] }}
                   transition={{
                     duration: 0.5,
                     repeat: Infinity,
                     delay: i * 0.1,
                   }}
-                  className="w-1.5 bg-cyan-500 rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"
+                  className="w-1 md:w-1.5 bg-cyan-500 rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"
                 />
               ))}
             </div>
           )}
-          <div className="absolute top-6 left-6 z-20">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-xl border border-white/10">
+          <div className="absolute top-4 left-4 md:top-6 md:left-6 z-20">
+            <div className="flex items-center gap-2 px-2 md:px-3 py-1 md:py-1.5 bg-black/40 backdrop-blur-md rounded-lg md:rounded-xl border border-white/10">
               <div
                 className={cn(
-                  "w-1.5 h-1.5 rounded-full",
+                  "w-1 h-1 md:w-1.5 md:h-1.5 rounded-full",
                   isInterviewerTalking
                     ? "bg-cyan-500 animate-pulse"
                     : "bg-white/20",
                 )}
               />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
+              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white/60">
                 {isInterviewerTalking ? "Speaking..." : "Interviewer"}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex-1 bg-[#0a0a0a] rounded-[2.5rem] border border-white/10 relative overflow-hidden shadow-2xl group transition-all duration-500 hover:border-violet-500/20">
+        <div className="flex-1 min-h-[300px] lg:min-h-0 bg-[#0a0a0a] rounded-[1.5rem] md:rounded-[2.5rem] border border-white/10 relative overflow-hidden shadow-2xl group transition-all duration-500 hover:border-violet-500/20">
           {!isVideoOff ? (
             <div className="absolute inset-0 bg-black flex items-center justify-center">
               <video
@@ -944,41 +932,41 @@ const InterviewSession = () => {
                 muted
                 className="w-full h-full object-cover grayscale-[20%] contrast-[1.1]"
               />
-              <div className="absolute top-8 left-8 w-6 h-6 border-t-2 border-l-2 border-white/20 rounded-tl-lg" />
-              <div className="absolute top-8 right-8 w-6 h-6 border-t-2 border-r-2 border-white/20 rounded-tr-lg" />
-              <div className="absolute bottom-8 left-8 w-6 h-6 border-b-2 border-l-2 border-white/20 rounded-bl-lg" />
-              <div className="absolute bottom-8 right-8 w-6 h-6 border-b-2 border-r-2 border-white/20 rounded-br-lg" />
+              <div className="absolute top-4 left-4 md:top-8 md:left-8 w-4 h-4 md:w-6 md:h-6 border-t-2 border-l-2 border-white/20 rounded-tl-lg" />
+              <div className="absolute top-4 right-4 md:top-8 md:right-8 w-4 h-4 md:w-6 md:h-6 border-t-2 border-r-2 border-white/20 rounded-tr-lg" />
+              <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8 w-4 h-4 md:w-6 md:h-6 border-b-2 border-l-2 border-white/20 rounded-bl-lg" />
+              <div className="absolute bottom-4 right-4 md:bottom-8 md:right-8 w-4 h-4 md:w-6 md:h-6 border-b-2 border-r-2 border-white/20 rounded-br-lg" />
             </div>
           ) : (
             <div className="absolute inset-0 bg-[#050505] flex items-center justify-center">
-              <div className="w-24 h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-                <User className="w-10 h-10 text-white/20" />
+              <div className="w-16 h-16 md:w-24 md:h-24 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+                <User className="w-8 h-8 md:w-10 md:h-10 text-white/20" />
               </div>
             </div>
           )}
-          <div className="absolute top-6 right-6 z-20 flex flex-col items-end gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 backdrop-blur-md rounded-xl border border-white/10">
+          <div className="absolute top-4 right-4 md:top-6 md:right-6 z-20 flex flex-col items-end gap-2 md:gap-3">
+            <div className="flex items-center gap-2 px-2 md:px-3 py-1 md:py-1.5 bg-black/40 backdrop-blur-md rounded-lg md:rounded-xl border border-white/10">
               <div
                 className={cn(
-                  "w-1.5 h-1.5 rounded-full",
+                  "w-1 h-1 md:w-1.5 md:h-1.5 rounded-full",
                   isRecognitionActive
                     ? "bg-green-500 animate-pulse"
                     : "bg-white/20",
                 )}
               />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/60">
+              <span className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-white/60">
                 {isRecognitionActive ? "Listening..." : "Mic Off"}
               </span>
             </div>
-            {/* Performance Scorecard */}
+            {/* Performance Scorecard - Hidden on very small screens */}
             <AnimatePresence>
               {evaluations.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="flex flex-col gap-2 p-3 bg-black/40 backdrop-blur-md rounded-2xl border border-white/5 w-48 shadow-xl"
+                  className="hidden sm:flex flex-col gap-2 p-3 bg-black/40 backdrop-blur-md rounded-2xl border border-white/5 w-40 md:w-48 shadow-xl"
                 >
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400/60 mb-1">
+                  <span className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em] text-cyan-400/60 mb-1">
                     Live Evaluation
                   </span>
                   {evaluations
@@ -990,12 +978,12 @@ const InterviewSession = () => {
                         className="flex flex-col gap-1 pb-2 border-b border-white/5 last:border-0 last:pb-0"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-white/40 truncate w-24">
+                          <span className="text-[8px] md:text-[10px] text-white/40 truncate w-20 md:w-24">
                             {ev.question}
                           </span>
                           <span
                             className={cn(
-                              "text-[10px] font-bold",
+                              "text-[8px] md:text-[10px] font-bold",
                               ev.score > 7
                                 ? "text-green-400"
                                 : "text-yellow-400",
@@ -1006,101 +994,27 @@ const InterviewSession = () => {
                         </div>
                       </div>
                     ))}
-                  <div className="mt-1 flex items-center justify-between pt-1">
-                    <span className="text-[8px] uppercase font-bold text-white/20">
-                      Avg Score
-                    </span>
-                    <span className="text-xs font-black text-white">
-                      {(
-                        evaluations.reduce((acc, v) => acc + v.score, 0) /
-                        evaluations.length
-                      ).toFixed(1)}
-                    </span>
-                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
-            <AnimatePresence>
-              {sessionInsights && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="flex flex-col gap-3 p-3 bg-black/40 backdrop-blur-md rounded-2xl border border-white/5 w-56 shadow-xl"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-violet-300/70">
-                      Session Pattern
-                    </span>
-                    <span className="text-[10px] font-black text-white/80">
-                      L{sessionInsights.currentDifficulty}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] text-white/50">
-                    <span>Trend</span>
-                    <span className="font-bold text-white/80 uppercase">
-                      {sessionInsights.trendLabel}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-[10px] text-white/50">
-                    <span>Readiness</span>
-                    <span className="font-bold text-cyan-300 uppercase">
-                      {sessionInsights.readiness}
-                    </span>
-                  </div>
-                  <div className="pt-1 border-t border-white/5">
-                    <span className="text-[8px] uppercase font-bold text-white/20">
-                      Missing Most
-                    </span>
-                    <p className="text-[10px] text-white/75 leading-relaxed mt-1">
-                      {sessionInsights.missingSkills?.length
-                        ? sessionInsights.missingSkills.join(", ")
-                        : "No repeated gaps detected yet"}
-                    </p>
-                  </div>
-                  <div className="pt-1 border-t border-white/5">
-                    <span className="text-[8px] uppercase font-bold text-white/20">
-                      Focus Areas
-                    </span>
-                    <p className="text-[10px] text-white/75 leading-relaxed mt-1">
-                      {sessionInsights.focusAreas?.length
-                        ? sessionInsights.focusAreas.join(", ")
-                        : "Building signal"}
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <div className="flex flex-col gap-2">
-              <motion.div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl">
+            <div className="flex flex-col gap-1.5 md:gap-2">
+              <motion.div className="flex items-center gap-2 px-2 md:px-3 py-1.5 md:py-2 bg-black/60 backdrop-blur-md rounded-lg md:rounded-xl border border-white/10 shadow-xl">
                 {getExpressionIcon(expression)}
-                <span className="text-[10px] font-bold text-white/80 uppercase tracking-tight">
+                <span className="text-[8px] md:text-[10px] font-bold text-white/80 uppercase tracking-tight">
                   {expression}
                 </span>
               </motion.div>
-              <motion.div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl">
+              <motion.div className="flex items-center gap-2 px-2 md:px-3 py-1.5 md:py-2 bg-black/60 backdrop-blur-md rounded-lg md:rounded-xl border border-white/10 shadow-xl">
                 <Eye
                   className={cn(
-                    "w-4 h-4",
+                    "w-3 h-3 md:w-4 md:h-4",
                     eyeStatus === "Focused"
                       ? "text-green-400"
                       : "text-yellow-400",
                   )}
                 />
-                <span className="text-[10px] font-bold text-white/80 uppercase tracking-tight">
-                  Eyes: {eyeStatus}
-                </span>
-              </motion.div>
-              <motion.div className="flex items-center gap-2 px-3 py-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 shadow-xl">
-                <Hand
-                  className={cn(
-                    "w-4 h-4",
-                    handStatus !== "None Detected"
-                      ? "text-violet-400"
-                      : "text-white/20",
-                  )}
-                />
-                <span className="text-[10px] font-bold text-white/80 uppercase tracking-tight">
-                  Hands: {handStatus}
+                <span className="text-[8px] md:text-[10px] font-bold text-white/80 uppercase tracking-tight">
+                  {eyeStatus}
                 </span>
               </motion.div>
             </div>
@@ -1111,13 +1025,13 @@ const InterviewSession = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="absolute bottom-12 left-8 right-8 bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl z-30"
+                className="absolute bottom-4 md:bottom-12 left-4 right-4 md:left-8 md:right-8 bg-black/60 backdrop-blur-xl border border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 shadow-2xl z-30"
               >
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
-                    <Type className="w-3 h-3 text-cyan-500" />
+                <div className="flex items-start gap-2 md:gap-3">
+                  <div className="mt-1 w-4 h-4 md:w-5 md:h-5 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0">
+                    <Type className="w-2.5 h-2.5 md:w-3 md:h-3 text-cyan-500" />
                   </div>
-                  <p className="text-sm font-medium text-white/90 leading-relaxed italic">
+                  <p className="text-[10px] md:text-sm font-medium text-white/90 leading-relaxed italic line-clamp-2 md:line-clamp-none">
                     "{transcript}"
                   </p>
                 </div>
@@ -1127,8 +1041,8 @@ const InterviewSession = () => {
         </div>
       </div>
 
-      <footer className="h-28 bg-[#0a0a0a] border-t border-white/5 px-12 flex items-center justify-between">
-        <div className="flex items-center gap-8">
+      <footer className="h-auto md:h-28 bg-[#0a0a0a] border-t border-white/5 px-4 md:px-12 py-6 md:py-0 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-0">
+        <div className="flex items-center gap-8 hidden md:flex">
           <div className="flex flex-col">
             <span className="text-[9px] text-white/20 uppercase font-black tracking-[0.2em] mb-1">
               Session Target
@@ -1140,11 +1054,11 @@ const InterviewSession = () => {
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4 md:gap-5">
           <button
             onClick={() => setIsMuted(!isMuted)}
             className={cn(
-              "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 border",
+              "w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border",
               isMuted
                 ? "bg-red-500 border-red-400 text-white shadow-lg shadow-red-500/20"
                 : "bg-white/5 border-white/5 text-white/40 hover:text-white hover:border-white/20",
@@ -1159,7 +1073,7 @@ const InterviewSession = () => {
           <button
             onClick={() => setIsVideoOff(!isVideoOff)}
             className={cn(
-              "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 border",
+              "w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 border",
               isVideoOff
                 ? "bg-red-500 border-red-400 text-white shadow-lg shadow-red-500/20"
                 : "bg-white/5 border-white/5 text-white/40 hover:text-white hover:border-white/20",
@@ -1173,12 +1087,17 @@ const InterviewSession = () => {
           </button>
           <button
             onClick={handleEndInterview}
-            className="px-10 h-14 rounded-2xl bg-white text-black font-black text-xs uppercase tracking-widest hover:bg-white/90 transition-all active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.1)]"
+            className="px-6 md:px-10 h-12 md:h-14 rounded-xl md:rounded-2xl bg-white text-black font-black text-[10px] md:text-xs uppercase tracking-widest hover:bg-white/90 transition-all active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.1)]"
           >
             End Interview
           </button>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 md:hidden w-full">
+           <div className="flex-1 h-[1px] bg-white/5" />
+           <span className="text-[8px] font-black uppercase tracking-[0.3em] text-white/20">Controls</span>
+           <div className="flex-1 h-[1px] bg-white/5" />
+        </div>
+        <div className="flex items-center gap-4 hidden md:flex">
           <button className="p-3 rounded-xl bg-white/5 border border-white/5 text-white/40 hover:text-white transition-colors">
             <Settings className="w-5 h-5" />
           </button>
