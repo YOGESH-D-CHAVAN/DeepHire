@@ -1,14 +1,40 @@
 import "dotenv/config";
-
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
+import helmet from "helmet";
+import compression from "compression";
+import { rateLimit } from "express-rate-limit";
 import analysisRoutes from "./routes/analysisRoutes.js";
 import interviewRoutes from "./routes/interviewRoutes.js";
 import resumeRoutes from "./routes/resumeRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Security & Performance Middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  contentSecurityPolicy: false, // Disabled for development, fine-tune for production
+}));
+app.use(compression());
+
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: {
+    success: false,
+    error: "Too many requests from this IP, please try again after 15 minutes",
+    isRateLimit: true
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiter to AI routes specifically to prevent cost spikes
+app.use("/api/interview/message", limiter);
+app.use("/api/analysis/analyze-session", limiter);
 
 // Middleware
 const allowedOrigins = [
@@ -21,7 +47,6 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
         callback(null, true);
@@ -51,45 +76,22 @@ app.get("/", (req, res) => {
   });
 });
 
-// 404 Handler (must be after all routes)
+// 404 Handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: `Route not found: ${req.method} ${req.path}`,
-    availableRoutes: [
-      "POST /api/resume/extract",
-      "GET /api/analysis/...",
-      "GET /api/interview/...",
-    ],
   });
 });
 
-// Global Error Handler (must be after all routes and 404 handler)
+// Global Error Handler
 app.use((err, req, res, next) => {
   console.error("[Server Error]", err);
 
-  // Handle multer errors
   if (err.name === "MulterError") {
     if (err.code === "FILE_TOO_LARGE") {
-      return res.status(413).json({
-        success: false,
-        error: "File too large. Maximum size is 10MB.",
-      });
+      return res.status(413).json({ success: false, error: "File too large. Maximum size is 10MB." });
     }
-    if (err.code === "LIMIT_FILE_COUNT") {
-      return res.status(400).json({
-        success: false,
-        error: "Only one file can be uploaded at a time.",
-      });
-    }
-  }
-
-  // Handle file filter errors
-  if (err.message === "Only PDF files are allowed.") {
-    return res.status(400).json({
-      success: false,
-      error: err.message,
-    });
   }
 
   res.status(err.status || 500).json({
@@ -99,23 +101,23 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Database Connection
-const connectDB = async () => {
+// Database Connection & Server Start
+const startServer = async () => {
   try {
+    // 1. Connect to Database First
     const conn = await mongoose.connect(
       process.env.MONGODB_URI || "mongodb://localhost:27017/deephire",
     );
     console.log(`🚀 MongoDB Connected: ${conn.connection.host}`);
+
+    // 2. Start Listening
+    app.listen(PORT, () => {
+      console.log(`✨ Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`);
+    });
   } catch (error) {
-    console.error(`❌ Error: ${error.message}`);
+    console.error(`❌ Initialization Error: ${error.message}`);
     process.exit(1);
   }
 };
 
-// Start Server
-app.listen(PORT, async () => {
-  await connectDB();
-  console.log(
-    `✨ Server running in ${process.env.NODE_ENV || "development"} mode on port ${PORT}`,
-  );
-});
+startServer();

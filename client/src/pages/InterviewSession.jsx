@@ -215,6 +215,9 @@ const InterviewSession = () => {
   const handLandmarkerRef = useRef(null);
   const requestRef = useRef(null);
   const recognitionRef = useRef(null);
+  const watchdogTimerRef = useRef(null);
+  const lastInferenceTimeRef = useRef(0);
+  const [isBrowserSupported, setIsBrowserSupported] = useState(true);
 
   const isMutedRef = useRef(isMuted);
   const isInterviewerTalkingRef = useRef(isInterviewerTalking);
@@ -234,32 +237,48 @@ const InterviewSession = () => {
   // Initialize MediaPipe
   useEffect(() => {
     const initMediaPipe = async () => {
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm",
-      );
-      faceLandmarkerRef.current = await FaceLandmarker.createFromOptions(
-        vision,
-        {
-          baseOptions: {
-            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
-            delegate: "GPU",
+      // Check for browser support
+      const isFirefox = navigator.userAgent.toLowerCase().indexOf('firefox') > -1;
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+      if (isFirefox || (isSafari && isIOS)) {
+        setIsBrowserSupported(false);
+      }
+
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm",
+        );
+        faceLandmarkerRef.current = await FaceLandmarker.createFromOptions(
+          vision,
+          {
+            baseOptions: {
+              modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+              delegate: "GPU",
+            },
+            outputFaceBlendshapes: true,
+            runningMode: "VIDEO",
+            numFaces: 1,
           },
-          outputFaceBlendshapes: true,
-          runningMode: "VIDEO",
-          numFaces: 1,
-        },
-      );
-      handLandmarkerRef.current = await HandLandmarker.createFromOptions(
-        vision,
-        {
-          baseOptions: {
-            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-            delegate: "GPU",
+        );
+        handLandmarkerRef.current = await HandLandmarker.createFromOptions(
+          vision,
+          {
+            baseOptions: {
+              modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
+              delegate: "GPU",
+            },
+            runningMode: "VIDEO",
+            numHands: 2,
           },
-          runningMode: "VIDEO",
-          numHands: 2,
-        },
-      );
+        );
+      } catch (err) {
+        console.error("MediaPipe Init Error:", err);
+        // Fallback to CPU if GPU fails
+        if (faceLandmarkerRef.current) faceLandmarkerRef.current.setOptions({ baseOptions: { delegate: "CPU" } });
+        if (handLandmarkerRef.current) handLandmarkerRef.current.setOptions({ baseOptions: { delegate: "CPU" } });
+      }
     };
     initMediaPipe();
   }, []);
@@ -275,6 +294,8 @@ const InterviewSession = () => {
       return;
     }
 
+    if (recognitionRef.current) return;
+
     const initRecognition = () => {
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
@@ -284,6 +305,16 @@ const InterviewSession = () => {
       recognition.onstart = () => {
         setIsRecognitionActive(true);
         console.log("[Speech API] Listening...");
+        
+        // Reset watchdog
+        if (watchdogTimerRef.current) clearInterval(watchdogTimerRef.current);
+        watchdogTimerRef.current = setInterval(() => {
+          if (!isMutedRef.current && hasStartedRef.current && !recognitionRef.current?.isActive) {
+             // If we are supposed to be listening but no events for a while, restart
+             console.log("[Speech API] Watchdog triggering restart...");
+             try { recognition.stop(); } catch(e) {}
+          }
+        }, 5000);
       };
 
       recognition.onresult = (event) => {
@@ -302,47 +333,42 @@ const InterviewSession = () => {
             interimTranscript += event.results[i][0].transcript;
           }
         }
-        if (interimTranscript) setTranscript(interimTranscript);
+        
+        if (interimTranscript) {
+          setTranscript(interimTranscript);
+          
+          // Auto-interrupt agent if user starts talking
+          if (isInterviewerTalkingRef.current && interimTranscript.trim().length > 3) {
+            stopAgentSpeech();
+          }
+        }
       };
 
       recognition.onend = () => {
         setIsRecognitionActive(false);
 
-        // Auto-restart logic
+        // Auto-restart logic using refs to avoid dependency re-runs
         if (
           !isMutedRef.current &&
-          !isInterviewerTalkingRef.current &&
           hasStartedRef.current
         ) {
-          // Use a slightly longer timeout if it was a quick closure to avoid tight loops
+          // Restart quickly to avoid missing the start of sentences
           setTimeout(() => {
             try {
-              if (recognitionRef.current === recognition) {
-                recognition.start();
+              if (recognitionRef.current) {
+                recognitionRef.current.start();
               }
-            } catch (err) {
-              // Silently handle start errors (usually already started)
-            }
-          }, 1000); // 1s delay is more stable than 300ms
+            } catch (err) {}
+          }, 100); 
         } else {
           console.log("[Speech API] Connection closed");
         }
       };
 
       recognition.onerror = (event) => {
-        if (event.error === "no-speech") {
-          // Silent for no-speech, as it's a normal part of the cycle
-          return;
-        }
-
+        if (event.error === "no-speech") return;
         console.error("[Speech API] Error:", event.error);
-        if (event.error === "not-allowed") {
-          setIsMuted(true);
-        }
-        if (event.error === "aborted") {
-          // Aborted is usually intentional (e.g. stop() called)
-          return;
-        }
+        if (event.error === "not-allowed") setIsMuted(true);
       };
 
       return recognition;
@@ -350,26 +376,25 @@ const InterviewSession = () => {
 
     recognitionRef.current = initRecognition();
 
-    // Start recognition if initial state allows
     if (!isMuted && !isInterviewerTalking) {
       try {
         recognitionRef.current.start();
-      } catch (err) {
-        console.error("[Speech API] Initial start failed:", err);
-      }
+      } catch (err) {}
     }
 
     return () => {
+      if (watchdogTimerRef.current) clearInterval(watchdogTimerRef.current);
       if (recognitionRef.current) {
-        recognitionRef.current.onend = null;
-        recognitionRef.current.onerror = null;
+        const r = recognitionRef.current;
+        r.onend = null;
+        r.onerror = null;
         try {
-          recognitionRef.current.stop();
+          r.stop();
         } catch (err) {}
         recognitionRef.current = null;
       }
     };
-  }, [hasStarted, isMuted, isInterviewerTalking]);
+  }, [hasStarted]); // Removed isMuted and isInterviewerTalking from dependencies
 
   // Timer
   useEffect(() => {
@@ -397,8 +422,16 @@ const InterviewSession = () => {
       try {
         if (!isVideoOff) {
           const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 1280, height: 720, facingMode: "user" },
-            audio: true,
+            video: { 
+              width: { ideal: 640 }, 
+              height: { ideal: 480 }, 
+              facingMode: "user" 
+            },
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
           });
           streamRef.current = stream;
           if (videoRef.current) videoRef.current.srcObject = stream;
@@ -418,7 +451,15 @@ const InterviewSession = () => {
     if (isVideoOff) return;
     const processVideo = async () => {
       if (videoRef.current && videoRef.current.readyState === 4) {
-        const startTimeMs = performance.now();
+        const now = performance.now();
+        // Throttle to ~15-20 FPS (50ms interval)
+        if (now - lastInferenceTimeRef.current < 50) {
+          requestRef.current = requestAnimationFrame(processVideo);
+          return;
+        }
+        lastInferenceTimeRef.current = now;
+
+        const startTimeMs = now;
         const video = videoRef.current;
         let currentEye = "Focused";
         let currentHand = "None Detected";
@@ -614,12 +655,12 @@ const InterviewSession = () => {
                 <Bot className="w-8 h-8 md:w-10 md:h-10 text-cyan-400" />
               </div>
               <h2 className="text-2xl md:text-3xl font-black mb-4 tracking-tight">
-                Ready to Start?
+                {isBrowserSupported ? "Ready to Start?" : "Action Required"}
               </h2>
               <p className="text-white/40 mb-8 md:mb-10 text-xs md:text-sm leading-relaxed">
-                Your camera and microphone will only be activated once you click
-                the button below. Ensure you are in a quiet, well-lit
-                environment.
+                {isBrowserSupported 
+                  ? "Your camera and microphone will only be activated once you click the button below. Ensure you are in a quiet, well-lit environment."
+                  : "We've detected you are using Firefox or Safari on iOS. For the best experience (including voice features), we recommend using Chrome or Edge."}
               </p>
               <button
                 onClick={() => setHasStarted(true)}
