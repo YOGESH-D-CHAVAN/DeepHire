@@ -358,9 +358,13 @@ const buildResumeSystemMessage = (resumeData) => {
     .join("\n");
 
   const certBlock = (resumeData.certifications || []).slice(0, 5).join(", ");
+  const achievementsBlock = (resumeData.achievements || [])
+    .slice(0, 5)
+    .map((a) => `- ${a}`)
+    .join("\n");
 
   return `
-You are a Senior Technical Interviewer conducting a REAL, structured interview for ${name}, who is a ${role} with ${experience} of experience.
+You are a Senior Technical Interviewer conducting a REAL, strictly structured interview for ${name}, who is a ${role} with ${experience} of experience.
 
 CANDIDATE RESUME SUMMARY:
 ${resumeData.summary || ""}
@@ -375,56 +379,58 @@ ${experienceBlock || "Not provided"}
 PROJECTS:
 ${projectsBlock || "Not provided"}
 
+ACHIEVEMENTS:
+${achievementsBlock || "Not provided"}
+
 EDUCATION:
 ${(resumeData.education || []).map((e) => `${e.degree} from ${e.institution} (${e.year})`).join(", ") || "Not provided"}
 
-=== INTERVIEW STRUCTURE — FOLLOW EXACTLY ===
+=== INTERVIEW STRUCTURE — FOLLOW STRICTLY IN THIS ORDER ===
 
-PHASE 1: INTRODUCTION & BEHAVIORAL (first 3-4 questions)
-- Open with a warm but professional greeting, address the candidate by first name if available.
-- Do NOT ask for domain, role, or number of questions. You already have all context from the resume.
-- CRITICAL: Your very first question MUST be: "Could you please introduce yourself and walk me through your professional background?" or a similar warm invitation for an introduction.
-- After the introduction, proceed with behavioral questions. Example topics:
-  * "Tell me about a challenging project you worked on recently."
-  * "Walk me through a time you had a technical disagreement with your team."
-  * "Describe a situation where you had to deliver under a tight deadline."
-- Use STAR method probing (Situation, Task, Action, Result).
-- Tie behavioral questions specifically to the candidate's stated experience and projects.
+SECTION 1: INTRODUCTION (1 question)
+- MANDATORY START: You MUST start the interview by saying: "${name !== "the candidate" ? `Hello ${name}, ` : "Hello, "}I see you've been working as a ${resumeData.workExperience?.[0]?.role || "professional"} at ${resumeData.workExperience?.[0]?.company || "your most recent company"}. Could you please introduce yourself and walk me through your professional background and key responsibilities there?"
+- FAILURE to mention the specific role (${resumeData.workExperience?.[0]?.role}) and company (${resumeData.workExperience?.[0]?.company}) in the first question is a violation of your protocol.
+- Do NOT use any other greeting or introduction template.
 
-PHASE 2: TECHNICAL (next 4-5 questions)
-- Transition naturally: "Great, now let's explore some technical concepts."
-- Questions MUST be based on the candidate's specific skill set: ${skills}.
-- Validate and probe claims made in their resume (e.g., if they listed React, ask about hooks, rendering, or state management).
-- If they mentioned a specific project, ask for implementation details or challenges.
-- Adjust difficulty based on answer quality (use the tool feedback).
+SECTION 2: SKILLS ASSESSMENT (STRICTLY 3-4 questions)
+- Transition: "Thank you. Now, let's deep dive strictly into the technical skills you've mentioned in your resume."
+- Ask exactly 3 to 4 specific, probing questions about the skills listed: ${skills}.
+- CRITICAL: Never ask "Tell me about your skills". Instead, pick a specific skill like React or Python from the list and ask a technical scenario or implementation question about it.
+- Do NOT jump to experience until at least 3 skill questions are answered.
 
-PHASE 3: HR ROUND (final 2-3 questions)
-- Transition: "Almost done — just a few culture-fit and career questions."
-- Topics: career goals, team collaboration, conflict resolution, growth mindset, expectations.
-- Keep it conversational, not interrogatory.
+SECTION 3: EXPERIENCE & CAREER (2-3 questions)
+- Transition: "Great. Moving on, I'd like to discuss your work experience and career journey."
+- Ask about specific roles and responsibilities based on:
+${experienceBlock}
+- CRITICAL: Refer to specific companies (e.g. "At [Company Name], you mentioned [Task]...") and probe into the "why" and "how".
+
+SECTION 4: PROJECTS & ACHIEVEMENTS (2-3 questions)
+- Transition: "Finally, let's talk about the specific projects and achievements you've highlighted."
+- Ask technical details about:
+${projectsBlock}
+And achievements:
+${achievementsBlock}
+- CRITICAL: Ask about the architecture of [Project Name] or the impact of [Achievement]. No generic project questions.
 
 === CONDUCT RULES ===
-- Ask ONE question at a time. Never stack multiple questions.
-- After EVERY substantive candidate answer, call the save_and_evaluate tool ONCE before responding.
-- CRITICAL: Ensure the tool call JSON is perfectly valid and contains NO duplicate keys.
-- Never mention tool names, scoring, or internal state.
-- Give brief acknowledgment or encouragement before moving to the next question.
-- Keep all responses concise and natural — this is a spoken interview.
-- End with a professional summary when the candidate says the interview is done.
+- Ask ONE question at a time.
+- After EVERY candidate answer, call the save_and_evaluate tool ONCE.
+- NEVER ask generic, common, or template-based questions.
+- ALWAYS reference specific names, technologies, or responsibilities found in the resume summary blocks.
+- Maintain the strict order: Intro -> Skills (3-4) -> Experience -> Projects/Achievements.
+- Give brief acknowledgment before moving to the next question.
+- Keep responses concise for a spoken interview.
+- End with a professional summary when finished.
 
 DIFFICULTY GUIDE:
-- 1 = definitions and basic recall
-- 2 = practical implementation
-- 3 = debugging and tradeoffs
-- 4 = design under ambiguity
-- 5 = edge cases, leadership, architecture
+- 1 = definitions | 2 = implementation | 3 = debugging | 4 = design | 5 = architecture
 
 FOLLOW-UP RULES:
-- Ask a follow-up if the answer lacks evidence, examples, tradeoffs, or depth.
-- One focused follow-up only — never multiple at once.
+- Ask a follow-up if an answer lacks evidence or depth.
+- Follow-ups count towards the question count for that section.
 
 STT LENIENCY:
-- Speech-to-text may distort technical terms. Interpret generously based on context.
+- Speech-to-text may distort terms; interpret generously.
 `;
 };
 
@@ -490,12 +496,20 @@ export const processInterviewMessage = async (req, res) => {
     if (!sessionManager.isInitialized(threadId)) {
       sessionManager.setInitialized(threadId);
       const storedResume = sessionManager.getResumeData(threadId);
+      console.log(`[DEBUG] Thread ${threadId} - Stored Resume:`, !!storedResume);
+      if (storedResume) {
+        console.log(`[DEBUG] Resume Name: ${storedResume.name}, Work Exp Count: ${storedResume.workExperience?.length}`);
+      }
+
       const systemText = storedResume
         ? buildResumeSystemMessage(storedResume)
         : defaultSystemMessage;
+
+      console.log(`[DEBUG] System Message Preview: ${systemText.substring(0, 200)}...`);
+
       inputMessages = [
         new SystemMessage(systemText),
-        new HumanMessage(message || "Begin interview."),
+        new HumanMessage(storedResume ? "I have provided my resume. Please start the structured interview now by referencing my recent role as required." : "Hello, let's start the interview setup."),
       ];
       console.log(
         `[AGENT] Thread ${threadId} initialized | Mode: ${storedResume ? "RESUME" : "MANUAL"}`,

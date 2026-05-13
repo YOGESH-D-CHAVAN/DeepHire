@@ -94,6 +94,7 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no expla
       "technologies": ["tech1", "tech2"]
     }
   ],
+  "achievements": ["achievement1", "achievement2"],
   "summary": "a 2-3 sentence professional summary of the candidate based on the resume"
 }`;
 
